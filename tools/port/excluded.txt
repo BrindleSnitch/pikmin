@@ -23,3 +23,10 @@ src/sysCore/wSocket.cpp
 
 # needs gl/gl.h
 src/sysCore/oglGraphics.cpp
+
+# Part of the same OpenGL backend, and compiles without a GL header, so it is
+# easy to miss. It defines Shape::optimize(), which src/sysDolphin/dgxGraphics
+# also defines -- the two are alternative backends and were never meant to be
+# linked into one binary. Linking both gives a multiple-definition error that
+# reads as a build mistake rather than the backend collision it is.
+src/sysCore/oglShapeOpt.cpp

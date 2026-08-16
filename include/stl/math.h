@@ -54,12 +54,23 @@ f64 scalbn(f64, int);
 #define fabs(x)  __fabs(x)
 #define fabsf(x) __fabsf(x)
 
-inline f128 fabsl(f128 x)
+// C and C++ disagree about what a bare `inline` definition in a header means.
+// In C++ it collapses to one symbol, which is why the C++ tree links cleanly;
+// in C each translation unit emits its own copy and the link fails with
+// multiple definitions. src/mtx is C, so these need internal linkage there.
+// MetroWerks keeps the original spelling so the matching build is untouched.
+#if defined(__MWERKS__)
+#define STL_MATH_INLINE inline
+#else
+#define STL_MATH_INLINE static inline
+#endif
+
+STL_MATH_INLINE f128 fabsl(f128 x)
 {
 	return __fabs((f64)x);
 }
 
-inline f32 sqrtf(f32 x)
+STL_MATH_INLINE f32 sqrtf(f32 x)
 {
 	// these REALLY don't have to be static.
 	static const f64 _half  = .5;

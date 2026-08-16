@@ -14,7 +14,7 @@ typedef unsigned __int8 u8;
 typedef unsigned __int16 u16;
 typedef unsigned __int32 u32;
 typedef unsigned __int64 u64;
-#else
+#elif defined(__MWERKS__)
 typedef signed char s8;
 typedef signed short s16;
 typedef signed long s32;
@@ -22,6 +22,24 @@ typedef signed long long s64;
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned long u32;
+typedef unsigned long long u64;
+#else
+// `long` is 32-bit under the PowerPC EABI and 64-bit on every LP64 host, so
+// spelling u32 as `unsigned long` makes it EIGHT bytes wide off-console. That
+// silently doubles the width of most fields in most structs, and neither a
+// syntax check nor a successful link notices -- it only shows up at runtime as
+// corruption. `int` is 32 bits on both, so it is the portable spelling.
+//
+// Left as `long` for MetroWerks above: in C++ the two are distinct types even
+// at equal width, so changing it there would alter overload resolution and name
+// mangling and break the matching build.
+typedef signed char s8;
+typedef signed short s16;
+typedef signed int s32;
+typedef signed long long s64;
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
 typedef unsigned long long u64;
 #endif
 

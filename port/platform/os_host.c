@@ -17,6 +17,8 @@
 
 #include <errno.h>
 #include <pthread.h>
+#include <stdint.h>
+#include <sys/mman.h>
 #include <sched.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -97,24 +99,53 @@ static void tbl_put(Table* t, const void* key, void* val)
 
 /* --------------------------------------------------------------- arena --
  * One block standing in for the GameCube's 24MB of main memory. The game
- * carves its own heaps out of this, so it only needs to be contiguous and
- * large enough.
+ * carves its own heaps out of this.
+ *
+ * It has to live below 4GB. The heap layer stores addresses as u32 --
+ * System::mHeapStart, System::mHeapEnd and AyuHeap::init(u32, u32) all do --
+ * which was lossless on a 32-bit console and silently truncating here. malloc
+ * on a 64-bit host returns something far above 4GB, so the heap bounds came
+ * back as garbage and the first allocation wrote into nowhere.
+ *
+ * Mapping the arena at a fixed low address fixes every one of those sites at
+ * once, rather than widening u32 address fields across the codebase and
+ * changing struct layouts the matching build depends on. 0x80000000 is where
+ * the GameCube's own RAM was mapped, so addresses here even resemble the
+ * originals, which helps when comparing against a debugger or Dolphin.
  */
 #define ARENA_SIZE (24u * 1024u * 1024u)
+#define ARENA_ADDR ((void*)(uintptr_t)0x80000000u)
 
 static char* s_arena_lo;
 static char* s_arena_hi;
 
 void OSInit(void)
 {
+	void* got;
+
 	if (s_arena_lo) {
 		return;
 	}
-	s_arena_lo = (char*)malloc(ARENA_SIZE);
-	if (!s_arena_lo) {
-		fprintf(stderr, "OSInit: could not reserve %u byte arena\n", ARENA_SIZE);
+
+	got = mmap(ARENA_ADDR, ARENA_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (got == MAP_FAILED) {
+		fprintf(stderr, "OSInit: could not map %u byte arena: %s\n", ARENA_SIZE, strerror(errno));
 		abort();
 	}
+
+	/* Without MAP_FIXED the kernel may ignore the hint. Accept any placement
+	 * that still fits in 32 bits; refuse anything that does not, because the
+	 * failure mode otherwise is silent memory corruption rather than a crash. */
+	if ((uintptr_t)got + ARENA_SIZE > 0xFFFFFFFFu) {
+		fprintf(stderr,
+		        "OSInit: arena mapped at %p, above the 4GB the heap layer can\n"
+		        "  address (it stores addresses as u32). Cannot continue.\n",
+		        got);
+		munmap(got, ARENA_SIZE);
+		abort();
+	}
+
+	s_arena_lo = (char*)got;
 	s_arena_hi = s_arena_lo + ARENA_SIZE;
 }
 
