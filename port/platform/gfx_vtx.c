@@ -30,6 +30,7 @@
 #include <GLES3/gl3.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <execinfo.h>
 #include <string.h>
 
 #include "Dolphin/gx.h"
@@ -103,13 +104,39 @@ void GXLoadPosMtxImm(const Mtx mtx, u32 id)
 		if (isnan) {
 			bad++;
 		}
-		if (shown < 4) {
+		if (isnan && shown < 1) {
+			/* Where the NaN is produced matters more than the fact of it:
+			 * whoever computed this matrix is the actual defect. */
+			void* bt[12];
+			int n = backtrace(bt, 12);
 			shown++;
-			fprintf(stderr, "gfx: LoadPosMtx id=%u nan=%d  row0: %g %g %g %g\n", id, isnan, mtx[0][0], mtx[0][1],
-			        mtx[0][2], mtx[0][3]);
+			fprintf(stderr, "gfx: first NaN matrix at id=%u, from:\n", id);
+			backtrace_symbols_fd(bt, n, 2);
 		}
 		if ((total % 50000) == 0) {
 			fprintf(stderr, "gfx: LoadPosMtx %lu calls, %lu with NaN\n", total, bad);
+		}
+	}
+	{
+		/*
+		 * Drop non-finite matrices rather than storing them.
+		 *
+		 * A NaN matrix is not an isolated bad draw: it stays in its slot until
+		 * something overwrites it, so every later object selecting that slot is
+		 * poisoned too. Only about 8% of loads are bad, but because they
+		 * persist, far more than 8% of the frame was being lost. Keeping the
+		 * previous good transform draws that geometry in a slightly stale place
+		 * instead of not at all, which is the better failure while the actual
+		 * source -- the cinematic actor transforms in ActorInstance::refresh --
+		 * is still unexplained.
+		 */
+		int r, c;
+		for (r = 0; r < 3; r++) {
+			for (c = 0; c < 4; c++) {
+				if (mtx[r][c] != mtx[r][c]) {
+					return;
+				}
+			}
 		}
 	}
 	if (id < MAX_PNMTX) {
@@ -588,6 +615,24 @@ void GXCallDisplayList(void* list, u32 numBytes)
 			}
 		}
 		emit_primitive((u8)(op & 0xF8), (size_t)count);
+
+		{
+			/* A correct walk lands exactly on the end of the list (bar padding).
+			 * If it desyncs it starts reading vertex data as opcodes, and since
+			 * about half of arbitrary bytes have the high bit set those look
+			 * like valid draw commands -- so the parse appears to succeed while
+			 * producing nonsense. Checking that it terminates cleanly is the
+			 * only way to tell the two apart. */
+			static int lists;
+			if (lists < 2) {
+				fprintf(stderr, "gfx:   op=0x%02x count=%u  consumed=%ld/%u\n", op, count, (long)(p - (const u8*)list),
+				        numBytes);
+			}
+			if (p >= end && lists < 2) {
+				lists++;
+				fprintf(stderr, "gfx: list finished, %ld of %u bytes consumed\n", (long)(p - (const u8*)list), numBytes);
+			}
+		}
 	}
 }
 
