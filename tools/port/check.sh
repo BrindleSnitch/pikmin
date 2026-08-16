@@ -17,7 +17,14 @@ cd "$(dirname "$0")/../.."
 CXX="${CXX:-clang++}"
 BASELINE="tools/port/baseline.txt"
 EXCLUDED="tools/port/excluded.txt"
-FLAGS=(-fsyntax-only -std=c++98 -I include -I include/stl
+# Which disc version the sources are compiled for. 116 files change behaviour on
+# these macros, and with none defined the version-conditional branches simply
+# vanish -- GameFlow's language paths, for one, are left null, which surfaces
+# much later as a crash in unrelated code. types.h derives the broader
+# VERSION_GPIE01 from this. Mirrors configure.py's -DVERSION_{version}.
+VERSION_DEFS="-DVERSION_GPIE01_01 -DBUILD_VERSION=5"
+
+FLAGS=(-fsyntax-only -std=c++98 $VERSION_DEFS -I include -I include/stl
        -include port/compat/ppc_compat.h -w)
 
 failing="$(mktemp)"
