@@ -211,6 +211,8 @@ ASM void PSMTXConcat(register const Mtx a, register const Mtx b, register Mtx ds
 	addi       r1, r1, 64
 
 	blr
+#else
+	C_MTXConcat(a, b, dst);
 #endif // clang-format on
 }
 
@@ -412,6 +414,8 @@ _regular:
 	li          r3, 1
 	psq_st      fp7,  44(inv), 1, 0
 	blr
+#else
+	return C_MTXInverse(src, inv);
 #endif // clang-format on
 }
 
@@ -531,6 +535,8 @@ _regular:
 	psq_st      fp9,   24(inv), 1, 0
 	psq_st      fp8,   40(inv), 1, 0
 	blr
+#else
+	return C_MTXInvXpose(src, inv);
 #endif // clang-format on
 }
 
@@ -892,6 +898,8 @@ ASM void PSMTXTransApply(register const Mtx src, register Mtx dst, register f32 
 	psq_st   fp9, 32 (dst), 0, 0
 	psq_st   fp8, 40 (dst), 0, 0
 	blr
+#else
+	C_MTXTransApply(src, dst, xT, yT, zT);
 #endif // clang-format on
 }
 
@@ -991,6 +999,8 @@ ASM void PSMTXScaleApply(register const Mtx src, register Mtx dst, register f32 
 	psq_st    fp8, 32 (dst), 0, 0
 	psq_st    fp2, 40 (dst), 0, 0
 	blr
+#else
+	C_MTXScaleApply(src, dst, xS, yS, zS);
 #endif // clang-format on
 }
 

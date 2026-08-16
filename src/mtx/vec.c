@@ -203,6 +203,8 @@ ASM f32 PSVECSquareMag(register const Vec* v) {
 #else
 	blr  // Whoops! An extra blr was added despite the compiler automatically handling that.
 #endif
+#else
+	return C_VECSquareMag(v);
 #endif // clang-format on
 }
 

@@ -245,13 +245,26 @@ static GLuint compile(GLenum kind, const char* src)
 
 static void gfx_init_geometry(void)
 {
+	/*
+	 * Shaded by depth rather than flat.
+	 *
+	 * With one flat colour, no depth test and no culling, a single large
+	 * background polygon fills the view and is indistinguishable from a total
+	 * failure to transform anything -- which is exactly how this looked. Ramping
+	 * on distance makes the structure visible and tells the two apart.
+	 */
 	static const char* vs = "#version 300 es\n"
 	                        "layout(location=0) in vec4 aPos;\n"
-	                        "void main(){ gl_Position = aPos; }\n";
+	                        "out float vDepth;\n"
+	                        "void main(){ gl_Position = aPos; vDepth = aPos.w; }\n";
 	static const char* fs = "#version 300 es\n"
 	                        "precision mediump float;\n"
+	                        "in float vDepth;\n"
 	                        "out vec4 o;\n"
-	                        "void main(){ o = vec4(0.85,0.86,0.90,1.0); }\n";
+	                        "void main(){\n"
+	                        "  float d = clamp(log2(max(vDepth,1.0)) / 14.0, 0.0, 1.0);\n"
+	                        "  o = vec4(1.0-d, 0.55+0.45*(1.0-d), 0.35+0.65*d, 1.0);\n"
+	                        "}\n";
 	GLuint v, f;
 	GLint ok = 0;
 

@@ -355,6 +355,8 @@ ASM void PSMTX44Concat(register const Mtx44 a, register const Mtx44 b, register 
 	ps_madds1  f13, f5, f1, f13
 	psq_st     f13, 0x38 (ab), 0, 0
 	blr
+#else
+	C_MTX44Concat(a, b, ab);
 #endif // clang-format on
 }
 
@@ -433,6 +435,8 @@ ASM void PSMTX44Transpose(register const Mtx44 src, register Mtx44 xPose) {
 	ps_merge11  f5, f2, f3
 	psq_st      f5, 0x38 (xPose), 0, 0
 	blr
+#else
+	C_MTX44Transpose(src, xPose);
 #endif // clang-format on
 }
 
@@ -637,6 +641,8 @@ ASM void PSMTX44TransApply(register const Mtx44 src, register Mtx44 dst, registe
 	psq_st   f5, 0x30 (dst), 0, 0
 	psq_st   f6, 0x38 (dst), 0, 0
 	blr
+#else
+	C_MTX44TransApply(src, dst, xT, yT, zT);
 #endif // clang-format on
 }
 
@@ -760,6 +766,8 @@ ASM void PSMTX44ScaleApply(register const Mtx44 src, register Mtx44 dst, registe
 	psq_st    f10, 0x30 (dst), 0, 0
 	psq_st    f11, 0x38 (dst), 0, 0
 	blr
+#else
+	C_MTX44ScaleApply(src, dst, xS, yS, zS);
 #endif // clang-format on
 }
 
