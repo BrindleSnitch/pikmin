@@ -27,6 +27,7 @@
 #include <time.h>
 
 #include "Dolphin/os.h"
+#include "trace.h"
 #include "types.h"
 
 /* GameCube bus clock. The timebase runs at a quarter of it. */
@@ -147,6 +148,7 @@ void OSInit(void)
 
 	s_arena_lo = (char*)got;
 	s_arena_hi = s_arena_lo + ARENA_SIZE;
+	traceStart();
 }
 
 void* OSInitAlloc(void* arenaStart, void* arenaEnd, int maxHeaps)
@@ -194,6 +196,7 @@ static void intr_init(void)
 
 BOOL OSDisableInterrupts(void)
 {
+	TRACE_HIT(TR_OS_INTR_OFF);
 	pthread_once(&s_intr_once, intr_init);
 	pthread_mutex_lock(&s_intr_lock);
 	return TRUE;
@@ -239,8 +242,16 @@ void OSInitMutex(OSMutex* mutex)
 	tbl_put(&s_mutexes, mutex, h);
 }
 
-void OSLockMutex(OSMutex* mutex) { pthread_mutex_lock(host_mutex(mutex)); }
-void OSUnlockMutex(OSMutex* mutex) { pthread_mutex_unlock(host_mutex(mutex)); }
+void OSLockMutex(OSMutex* mutex)
+{
+	TRACE_HIT(TR_OS_LOCK);
+	pthread_mutex_lock(host_mutex(mutex));
+}
+void OSUnlockMutex(OSMutex* mutex)
+{
+	TRACE_HIT(TR_OS_UNLOCK);
+	pthread_mutex_unlock(host_mutex(mutex));
+}
 
 /* ------------------------------------------------------------------ cond --*/
 static Table s_conds = TABLE_INIT;
@@ -266,9 +277,17 @@ void OSInitCond(OSCond* cond)
 	tbl_put(&s_conds, cond, h);
 }
 
-void OSSignalCond(OSCond* cond) { pthread_cond_broadcast(host_cond(cond)); }
+void OSSignalCond(OSCond* cond)
+{
+	TRACE_HIT(TR_OS_SIGNALCOND);
+	pthread_cond_broadcast(host_cond(cond));
+}
 
-void OSWaitCond(OSCond* cond, OSMutex* mutex) { pthread_cond_wait(host_cond(cond), host_mutex(mutex)); }
+void OSWaitCond(OSCond* cond, OSMutex* mutex)
+{
+	TRACE_HIT(TR_OS_WAITCOND);
+	pthread_cond_wait(host_cond(cond), host_mutex(mutex));
+}
 
 /* --------------------------------------------------------- message queue --*/
 typedef struct {
@@ -302,11 +321,13 @@ void OSInitMessageQueue(OSMessageQueue* queue, OSMessage* msgArray, s32 msgCount
 BOOL OSSendMessage(OSMessageQueue* queue, OSMessage msg, s32 flags)
 {
 	HostQueue* q = (HostQueue*)tbl_get(&s_queues, queue);
+	TRACE_HIT(TR_OS_SEND);
 	if (!q || q->cap <= 0) {
 		return FALSE;
 	}
 	pthread_mutex_lock(&q->lock);
 	while (q->count == q->cap) {
+		TRACE_HIT(TR_OS_SEND_BLOCK);
 		if (!(flags & OS_MESSAGE_BLOCK)) {
 			pthread_mutex_unlock(&q->lock);
 			return FALSE;
@@ -323,11 +344,13 @@ BOOL OSSendMessage(OSMessageQueue* queue, OSMessage msg, s32 flags)
 BOOL OSReceiveMessage(OSMessageQueue* queue, OSMessage* msgPtr, s32 flags)
 {
 	HostQueue* q = (HostQueue*)tbl_get(&s_queues, queue);
+	TRACE_HIT(TR_OS_RECV);
 	if (!q || q->cap <= 0) {
 		return FALSE;
 	}
 	pthread_mutex_lock(&q->lock);
 	while (q->count == 0) {
+		TRACE_HIT(TR_OS_RECV_BLOCK);
 		if (!(flags & OS_MESSAGE_BLOCK)) {
 			pthread_mutex_unlock(&q->lock);
 			return FALSE;
@@ -398,6 +421,7 @@ BOOL OSCreateThread(OSThread* thread, OSThreadStartFunction func, void* param, v
 	if (!h) {
 		return FALSE;
 	}
+	TRACE_HIT(TR_OS_THREAD_NEW);
 	h->func  = func;
 	h->param = param;
 	pthread_mutex_init(&h->lock, NULL);
@@ -426,6 +450,7 @@ s32 OSResumeThread(OSThread* thread)
 	if (!h) {
 		return 0;
 	}
+	TRACE_HIT(TR_OS_THREAD_RESUME);
 	pthread_mutex_lock(&h->lock);
 	h->started = 1;
 	pthread_cond_broadcast(&h->gate);
@@ -464,7 +489,11 @@ void OSCancelThread(OSThread* thread)
 	pthread_mutex_unlock(&h->lock);
 }
 
-void OSYieldThread(void) { sched_yield(); }
+void OSYieldThread(void)
+{
+	TRACE_HIT(TR_OS_YIELD);
+	sched_yield();
+}
 
 OSThread* OSGetCurrentThread(void)
 {

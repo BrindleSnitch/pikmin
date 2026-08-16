@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include "Dolphin/dvd.h"
+#include "trace.h"
 #include "types.h"
 
 #define DVD_DEFAULT_ROOT "/root/pikmin-assets/files"
@@ -66,6 +67,7 @@ BOOL DVDOpen(const char* filename, DVDFileInfo* fileInfo)
 	int fd;
 	off_t end;
 
+	TRACE_HIT(TR_DVD_OPEN);
 	if (!filename || !fileInfo) {
 		return FALSE;
 	}
@@ -81,6 +83,7 @@ BOOL DVDOpen(const char* filename, DVDFileInfo* fileInfo)
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
+		TRACE_HIT(TR_DVD_OPEN_FAIL);
 		fprintf(stderr, "DVDOpen: %s (%s)\n", filename, strerror(errno));
 		return FALSE;
 	}
@@ -90,6 +93,10 @@ BOOL DVDOpen(const char* filename, DVDFileInfo* fileInfo)
 		return FALSE;
 	}
 
+	if (g_trace_on) {
+		fprintf(stderr, "DVDOpen ok: %s\n", filename);
+		fflush(stderr);
+	}
 	end = lseek(fd, 0, SEEK_END);
 	memset(fileInfo, 0, sizeof(*fileInfo));
 	fileInfo->startAddr = DVD_FD_TAG | (u32)fd;
@@ -102,7 +109,18 @@ s32 DVDReadPrio(DVDFileInfo* fileInfo, void* addr, s32 length, s32 offset, s32 p
 {
 	ssize_t got;
 
+	TRACE_HIT(TR_DVD_READ);
 	(void)prio; /* no drive queue to prioritise against */
+
+	if (g_trace_on) {
+		static unsigned long seen;
+		if (seen++ < 12) {
+			fprintf(stderr, "DVDReadPrio #%lu: fi=%p addr=%p len=%d off=%d startAddr=%08x len=%u\n", seen,
+			        (void*)fileInfo, addr, (int)length, (int)offset, fileInfo ? fileInfo->startAddr : 0u,
+			        fileInfo ? fileInfo->length : 0u);
+			fflush(stderr);
+		}
+	}
 
 	if (!fileInfo || !addr || length < 0 || offset < 0) {
 		return -1;
@@ -116,16 +134,24 @@ s32 DVDReadPrio(DVDFileInfo* fileInfo, void* addr, s32 length, s32 offset, s32 p
 		return -1;
 	}
 
-	/* The drive transfers whole 32-byte blocks and callers rely on the tail of a
-	 * short final read being defined rather than stale. */
+	/* Report the full requested length, not the byte count pread returned.
+	 *
+	 * The drive transfers whole 32-byte blocks, so callers round their request
+	 * up -- DVDStream::read does exactly this with ALIGN_NEXT(size, 32) and then
+	 * checks `result != roundedSize`. On disc a 120-byte file sits in a padded
+	 * region, so asking for 128 bytes genuinely yielded 128. Extracted files are
+	 * exactly their FST length, so pread stops at 120 and the stream's accounting
+	 * ends up 8 bytes out of step; the layer above it then reads zero bytes
+	 * forever. Zero-filling the tail restores the padding, and returning `length`
+	 * reports what the hardware would have. */
 	if (got < length) {
 		memset((char*)addr + got, 0, (size_t)(length - got));
 	}
 
 	if (fileInfo->callback) {
-		fileInfo->callback((s32)got, fileInfo);
+		fileInfo->callback(length, fileInfo);
 	}
-	return (s32)got;
+	return length;
 }
 
 BOOL DVDClose(DVDFileInfo* fileInfo)

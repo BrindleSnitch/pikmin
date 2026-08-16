@@ -19,6 +19,7 @@
 #include <SDL2/SDL.h>
 
 #include "Dolphin/pad.h"
+#include "trace.h"
 #include "types.h"
 
 /* An analog trigger counts as clicked past this fraction of its travel. The
@@ -102,6 +103,7 @@ u32 PADRead(PADStatus* status)
 	u32 connected = 0;
 	int i;
 
+	TRACE_HIT(TR_PAD_READ);
 	if (!s_initialised) {
 		PADInit();
 	}

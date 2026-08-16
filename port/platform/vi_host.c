@@ -21,6 +21,7 @@
 #include <time.h>
 
 #include "Dolphin/vi.h"
+#include "trace.h"
 #include "types.h"
 
 /* NTSC field rate: 60000/1001 Hz. */
@@ -86,6 +87,7 @@ void VIWaitForRetrace(void)
 	long long now;
 	struct timespec deadline;
 
+	TRACE_HIT(TR_VI_WAIT);
 	if (!s_initialised) {
 		VIInit();
 	}
@@ -96,6 +98,7 @@ void VIWaitForRetrace(void)
 		 * boundary rather than trying to catch up by spinning through frames
 		 * we have already lost. */
 		long long behind  = now - s_next_deadline_ns;
+		TRACE_HIT(TR_VI_BEHIND);
 		long long skipped = behind / VI_FIELD_NS + 1;
 		s_retrace_count += (u32)skipped;
 		s_next_deadline_ns += skipped * VI_FIELD_NS;
@@ -105,6 +108,7 @@ void VIWaitForRetrace(void)
 		while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &deadline, NULL) == EINTR) {
 			/* a signal cut the sleep short; wait out the rest */
 		}
+		TRACE_HIT(TR_VI_SLEPT);
 		s_retrace_count++;
 		s_next_deadline_ns += VI_FIELD_NS;
 	}
