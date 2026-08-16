@@ -19,7 +19,7 @@
 /* Call counting. Which of these the game actually uses, and how often, decides
  * what a renderer has to implement first -- measured rather than assumed. Set
  * PIKMIN_TRACE to have the totals printed at exit. */
-#define STUB_COUNT 67
+#define STUB_COUNT 64
 static unsigned long g_stub_hits[STUB_COUNT];
 static const char* const g_stub_names[STUB_COUNT] = {
     "GXBegin",
@@ -39,7 +39,6 @@ static const char* const g_stub_names[STUB_COUNT] = {
     "GXInvalidateVtxCache",
     "GXLoadLightObjImm",
     "GXLoadNrmMtxImm",
-    "GXLoadPosMtxImm",
     "GXLoadTexMtxImm",
     "GXLoadTexObj",
     "GXPixModeSync",
@@ -54,7 +53,6 @@ static const char* const g_stub_names[STUB_COUNT] = {
     "GXSetCopyFilter",
     "GXSetCullMode",
     "GXSetCurrentGXThread",
-    "GXSetCurrentMtx",
     "GXSetDispCopyDst",
     "GXSetDispCopySrc",
     "GXSetDispCopyYScale",
@@ -67,7 +65,6 @@ static const char* const g_stub_names[STUB_COUNT] = {
     "GXSetNumTexGens",
     "GXSetPixelFmt",
     "GXSetPointSize",
-    "GXSetProjection",
     "GXSetScissor",
     "GXSetScissorBoxOffset",
     "GXSetTevAlphaIn",
@@ -183,254 +180,239 @@ void GXLoadNrmMtxImm(const Mtx mtx, u32 id)
 	STUB_HIT(16);
 }
 
-void GXLoadPosMtxImm(const Mtx mtx, u32 id)
+void GXLoadTexMtxImm(const Mtx mtx, u32 id, GXTexMtxType type)
 {
 	STUB_HIT(17);
 }
 
-void GXLoadTexMtxImm(const Mtx mtx, u32 id, GXTexMtxType type)
+void GXLoadTexObj(GXTexObj* obj, GXTexMapID map)
 {
 	STUB_HIT(18);
 }
 
-void GXLoadTexObj(GXTexObj* obj, GXTexMapID map)
+void GXPixModeSync(void)
 {
 	STUB_HIT(19);
 }
 
-void GXPixModeSync(void)
+void GXSetAlphaCompare(GXCompare comp0, u8 ref0, GXAlphaOp op, GXCompare comp1, u8 ref1)
 {
 	STUB_HIT(20);
 }
 
-void GXSetAlphaCompare(GXCompare comp0, u8 ref0, GXAlphaOp op, GXCompare comp1, u8 ref1)
+void GXSetAlphaUpdate(GXBool enableUpdate)
 {
 	STUB_HIT(21);
 }
 
-void GXSetAlphaUpdate(GXBool enableUpdate)
+void GXSetBlendMode(GXBlendMode type, GXBlendFactor srcFactor, GXBlendFactor destFactor, GXLogicOp op)
 {
 	STUB_HIT(22);
 }
 
-void GXSetBlendMode(GXBlendMode type, GXBlendFactor srcFactor, GXBlendFactor destFactor, GXLogicOp op)
+void GXSetChanAmbColor(GXChannelID channel, GXColor color)
 {
 	STUB_HIT(23);
 }
 
-void GXSetChanAmbColor(GXChannelID channel, GXColor color)
+void GXSetChanCtrl(GXChannelID channel, GXBool doEnable, GXColorSrc ambSrc, GXColorSrc matSrc, u32 mask, GXDiffuseFn diffFunc, GXAttnFn attnFunc)
 {
 	STUB_HIT(24);
 }
 
-void GXSetChanCtrl(GXChannelID channel, GXBool doEnable, GXColorSrc ambSrc, GXColorSrc matSrc, u32 mask, GXDiffuseFn diffFunc, GXAttnFn attnFunc)
+void GXSetChanMatColor(GXChannelID channel, GXColor color)
 {
 	STUB_HIT(25);
 }
 
-void GXSetChanMatColor(GXChannelID channel, GXColor color)
+void GXSetCoPlanar(GXBool doEnable)
 {
 	STUB_HIT(26);
 }
 
-void GXSetCoPlanar(GXBool doEnable)
+void GXSetColorUpdate(GXBool enableUpdate)
 {
 	STUB_HIT(27);
 }
 
-void GXSetColorUpdate(GXBool enableUpdate)
+void GXSetCopyFilter(GXBool useAA, const u8 samplePattern[12][2], GXBool doVertFilt, const u8 vFilt[7])
 {
 	STUB_HIT(28);
 }
 
-void GXSetCopyFilter(GXBool useAA, const u8 samplePattern[12][2], GXBool doVertFilt, const u8 vFilt[7])
+void GXSetCullMode(GXCullMode mode)
 {
 	STUB_HIT(29);
 }
 
-void GXSetCullMode(GXCullMode mode)
-{
-	STUB_HIT(30);
-}
-
 struct OSThread* GXSetCurrentGXThread(void)
 {
-	STUB_HIT(31);
+	STUB_HIT(30);
 	return NULL;
-}
-
-void GXSetCurrentMtx(u32 id)
-{
-	STUB_HIT(32);
 }
 
 void GXSetDispCopyDst(u16 width, u16 height)
 {
-	STUB_HIT(33);
+	STUB_HIT(31);
 }
 
 void GXSetDispCopySrc(u16 left, u16 top, u16 width, u16 height)
 {
-	STUB_HIT(34);
+	STUB_HIT(32);
 }
 
 u32 GXSetDispCopyYScale(f32 vertScale)
 {
-	STUB_HIT(35);
+	STUB_HIT(33);
 	return 0;
 }
 
 void GXSetDither(GXBool doDither)
 {
-	STUB_HIT(36);
+	STUB_HIT(34);
 }
 
 void GXSetFog(GXFogType type, f32 startZ, f32 endZ, f32 nearZ, f32 farZ, GXColor color)
 {
-	STUB_HIT(37);
+	STUB_HIT(35);
 }
 
 void GXSetFogRangeAdj(GXBool doEnable, u16 center, GXFogAdjTable* table)
 {
-	STUB_HIT(38);
+	STUB_HIT(36);
 }
 
 void GXSetLineWidth(u8 width, GXTexOffset offset)
 {
-	STUB_HIT(39);
+	STUB_HIT(37);
 }
 
 void GXSetNumChans(u8 count)
 {
-	STUB_HIT(40);
+	STUB_HIT(38);
 }
 
 void GXSetNumTevStages(u8 count)
 {
-	STUB_HIT(41);
+	STUB_HIT(39);
 }
 
 void GXSetNumTexGens(u8 nTexGens)
 {
-	STUB_HIT(42);
+	STUB_HIT(40);
 }
 
 void GXSetPixelFmt(GXPixelFmt pixelFormat, GXZFmt16 zFormat)
 {
-	STUB_HIT(43);
+	STUB_HIT(41);
 }
 
 void GXSetPointSize(u8 pointSize, GXTexOffset offset)
 {
-	STUB_HIT(44);
-}
-
-void GXSetProjection(const Mtx44 mtx, GXProjectionType type)
-{
-	STUB_HIT(45);
+	STUB_HIT(42);
 }
 
 void GXSetScissor(u32 left, u32 top, u32 width, u32 height)
 {
-	STUB_HIT(46);
+	STUB_HIT(43);
 }
 
 void GXSetScissorBoxOffset(s32 x, s32 y)
 {
-	STUB_HIT(47);
+	STUB_HIT(44);
 }
 
 void GXSetTevAlphaIn(GXTevStageID stage, GXTevAlphaArg a, GXTevAlphaArg b, GXTevAlphaArg c, GXTevAlphaArg d)
 {
-	STUB_HIT(48);
+	STUB_HIT(45);
 }
 
 void GXSetTevAlphaOp(GXTevStageID stage, GXTevOp op, GXTevBias bias, GXTevScale scale, GXBool doClamp, GXTevRegID outReg)
 {
-	STUB_HIT(49);
+	STUB_HIT(46);
 }
 
 void GXSetTevColor(GXTevRegID reg, GXColor color)
 {
-	STUB_HIT(50);
+	STUB_HIT(47);
 }
 
 void GXSetTevColorIn(GXTevStageID stage, GXTevColorArg a, GXTevColorArg b, GXTevColorArg c, GXTevColorArg d)
 {
-	STUB_HIT(51);
+	STUB_HIT(48);
 }
 
 void GXSetTevColorOp(GXTevStageID stage, GXTevOp op, GXTevBias bias, GXTevScale scale, GXBool doClamp, GXTevRegID outReg)
 {
-	STUB_HIT(52);
+	STUB_HIT(49);
 }
 
 void GXSetTevColorS10(GXTevRegID reg, GXColorS10 color)
 {
-	STUB_HIT(53);
+	STUB_HIT(50);
 }
 
 void GXSetTevKAlphaSel(GXTevStageID stage, GXTevKAlphaSel sel)
 {
-	STUB_HIT(54);
+	STUB_HIT(51);
 }
 
 void GXSetTevKColor(GXTevKColorID id, GXColor color)
 {
-	STUB_HIT(55);
+	STUB_HIT(52);
 }
 
 void GXSetTevKColorSel(GXTevStageID stage, GXTevKColorSel sel)
 {
-	STUB_HIT(56);
+	STUB_HIT(53);
 }
 
 void GXSetTevOp(GXTevStageID stage, GXTevMode mode)
 {
-	STUB_HIT(57);
+	STUB_HIT(54);
 }
 
 void GXSetTevOrder(GXTevStageID stage, GXTexCoordID coord, GXTexMapID map, GXChannelID color)
 {
-	STUB_HIT(58);
+	STUB_HIT(55);
 }
 
 void GXSetTevSwapMode(GXTevStageID stage, GXTevSwapSel rasSel, GXTevSwapSel texSel)
 {
-	STUB_HIT(59);
+	STUB_HIT(56);
 }
 
 void GXSetTevSwapModeTable(GXTevSwapSel table, GXTevColorChan red, GXTevColorChan green, GXTevColorChan blue, GXTevColorChan alpha)
 {
-	STUB_HIT(60);
+	STUB_HIT(57);
 }
 
 void GXSetTexCoordGen2(GXTexCoordID dst_coord, GXTexGenType func, GXTexGenSrc src_param, u32 mtx, GXBool normalize, u32 pt_texmtx)
 {
-	STUB_HIT(61);
+	STUB_HIT(58);
 }
 
 void GXSetTexCopyDst(u16 width, u16 height, GXTexFmt format, GXBool useMIPmap)
 {
-	STUB_HIT(62);
+	STUB_HIT(59);
 }
 
 void GXSetTexCopySrc(u16 left, u16 top, u16 width, u16 height)
 {
-	STUB_HIT(63);
+	STUB_HIT(60);
 }
 
 void GXSetVtxAttrFmtv(GXVtxFmt vtxfmt, GXVtxAttrFmtList* list)
 {
-	STUB_HIT(64);
+	STUB_HIT(61);
 }
 
 void GXSetZCompLoc(GXBool isBeforeTex)
 {
-	STUB_HIT(65);
+	STUB_HIT(62);
 }
 
 void GXSetZMode(GXBool enableCompare, GXCompare func, GXBool enableUpdate)
 {
-	STUB_HIT(66);
+	STUB_HIT(63);
 }

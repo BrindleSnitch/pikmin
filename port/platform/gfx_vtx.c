@@ -56,9 +56,70 @@ typedef struct {
 
 static ArrayRef s_array[MAX_ATTR];
 
-/* Geometry accumulated this frame, in the order submitted. */
+/* Geometry accumulated this frame, already in clip space. */
 static float* s_verts;
 static size_t s_vert_count, s_vert_cap;
+
+/*
+ * Transforms are applied on the CPU as each list is parsed, rather than being
+ * carried through to the draw as per-object uniforms.
+ *
+ * That is deliberate for a first pass: the game changes the position matrix
+ * roughly as often as it draws (224,946 GXLoadPosMtxImm against 438,744
+ * GXCallDisplayList), so preserving the association between geometry and its
+ * matrix would otherwise mean splitting every frame into a quarter of a million
+ * separate draws. Baking the transform in lets the whole frame go as one buffer
+ * while still putting each object where it belongs. Batching by state comes
+ * later, once there is something correct to optimise.
+ */
+#define MAX_PNMTX 64
+
+static float s_proj[4][4];
+static int s_have_proj;
+static float s_posmtx[MAX_PNMTX][3][4];
+static u32 s_cur_mtx; /* index into GX matrix memory */
+
+void GXSetProjection(const Mtx44 mtx, GXProjectionType type)
+{
+	(void)type;
+	memcpy(s_proj, mtx, sizeof(s_proj));
+	s_have_proj = 1;
+}
+
+void GXLoadPosMtxImm(const Mtx mtx, u32 id)
+{
+	if (id < MAX_PNMTX) {
+		memcpy(s_posmtx[id], mtx, sizeof(s_posmtx[0]));
+	}
+}
+
+void GXSetCurrentMtx(u32 id)
+{
+	if (id < MAX_PNMTX) {
+		s_cur_mtx = id;
+	}
+}
+
+/* model -> clip, via the current position matrix and the projection. */
+static void transform(float x, float y, float z, u32 mtx, float out[4])
+{
+	const float(*m)[4] = s_posmtx[mtx < MAX_PNMTX ? mtx : 0];
+	float vx           = m[0][0] * x + m[0][1] * y + m[0][2] * z + m[0][3];
+	float vy           = m[1][0] * x + m[1][1] * y + m[1][2] * z + m[1][3];
+	float vz           = m[2][0] * x + m[2][1] * y + m[2][2] * z + m[2][3];
+	int i;
+
+	if (!s_have_proj) {
+		out[0] = vx;
+		out[1] = vy;
+		out[2] = vz;
+		out[3] = 1.0f;
+		return;
+	}
+	for (i = 0; i < 4; i++) {
+		out[i] = s_proj[i][0] * vx + s_proj[i][1] * vy + s_proj[i][2] * vz + s_proj[i][3];
+	}
+}
 
 static int s_unsupported; /* stop spamming once the parser gives up */
 
@@ -215,29 +276,100 @@ static int attr_stream_size(int vtxfmt, int attr)
 	return cs * n;
 }
 
-static void push_vertex(float x, float y, float z)
+static void push_vertex(const float v[4])
 {
-	if (s_vert_count + 3 > s_vert_cap) {
-		size_t cap = s_vert_cap ? s_vert_cap * 2 : 3 * 4096;
+	int i;
+	if (s_vert_count + 4 > s_vert_cap) {
+		size_t cap = s_vert_cap ? s_vert_cap * 2 : 4 * 8192;
 		float* g   = (float*)realloc(s_verts, cap * sizeof(float));
 		if (!g) {
 			return;
 		}
-		s_verts   = g;
+		s_verts    = g;
 		s_vert_cap = cap;
 	}
-	s_verts[s_vert_count++] = x;
-	s_verts[s_vert_count++] = y;
-	s_verts[s_vert_count++] = z;
+	for (i = 0; i < 4; i++) {
+		s_verts[s_vert_count++] = v[i];
+	}
+}
+
+/* Vertices of the primitive currently being assembled. */
+static float* s_prim;
+static size_t s_prim_cap;
+
+static float* prim_slot(size_t i)
+{
+	if (i + 1 > s_prim_cap) {
+		size_t cap = s_prim_cap ? s_prim_cap * 2 : 1024;
+		float* g;
+		while (cap < i + 1) {
+			cap *= 2;
+		}
+		g = (float*)realloc(s_prim, cap * 4 * sizeof(float));
+		if (!g) {
+			return NULL;
+		}
+		s_prim     = g;
+		s_prim_cap = cap;
+	}
+	return s_prim + i * 4;
+}
+
+static void emit_tri(size_t a, size_t b, size_t c)
+{
+	push_vertex(s_prim + a * 4);
+	push_vertex(s_prim + b * 4);
+	push_vertex(s_prim + c * 4);
+}
+
+/* GX primitives, all reduced to a triangle list. */
+static void emit_primitive(u8 prim, size_t n)
+{
+	size_t i;
+	switch (prim) {
+	case 0x90: /* triangles */
+		for (i = 0; i + 2 < n; i += 3) {
+			emit_tri(i, i + 1, i + 2);
+		}
+		break;
+	case 0x98: /* triangle strip -- winding alternates */
+		for (i = 0; i + 2 < n; i++) {
+			if (i & 1) {
+				emit_tri(i + 1, i, i + 2);
+			} else {
+				emit_tri(i, i + 1, i + 2);
+			}
+		}
+		break;
+	case 0xA0: /* triangle fan */
+		for (i = 1; i + 1 < n; i++) {
+			emit_tri(0, i, i + 1);
+		}
+		break;
+	case 0x80: /* quads */
+		for (i = 0; i + 3 < n; i += 4) {
+			emit_tri(i, i + 1, i + 2);
+			emit_tri(i, i + 2, i + 3);
+		}
+		break;
+	default:
+		/* points and lines contribute no triangles */
+		break;
+	}
 }
 
 /* Pull one vertex's position, advancing p past the whole vertex. */
-static int read_vertex(const u8** pp, const u8* end, int vtxfmt)
+static int read_vertex(const u8** pp, const u8* end, int vtxfmt, float out[4])
 {
 	const u8* p = *pp;
 	int attr;
 	float x = 0.0f, y = 0.0f, z = 0.0f;
 	int have = 0;
+	/* Each vertex may name its own transform. GXSetCurrentMtx was called 4,995
+	 * times against 224,946 GXLoadPosMtxImm, so the matrix is chosen per-vertex
+	 * through this attribute far more often than by the global setter; ignoring
+	 * it leaves nearly everything transformed by whatever was last set. */
+	u32 mtx = s_cur_mtx;
 
 	for (attr = 0; attr < MAX_ATTR; attr++) {
 		int sz = attr_stream_size(vtxfmt, attr);
@@ -249,6 +381,10 @@ static int read_vertex(const u8** pp, const u8* end, int vtxfmt)
 		}
 		if (p + sz > end) {
 			return 0;
+		}
+
+		if (attr == GX_VA_PNMTXIDX && s_desc[attr] == GX_DIRECT) {
+			mtx = p[0];
 		}
 
 		if (attr == GX_VA_POS) {
@@ -276,7 +412,18 @@ static int read_vertex(const u8** pp, const u8* end, int vtxfmt)
 	}
 
 	if (have) {
-		push_vertex(x, y, z);
+		transform(x, y, z, mtx, out);
+		{
+			static int shown;
+			if (shown < 6) {
+				shown++;
+				fprintf(stderr, "gfx: model(%.2f,%.2f,%.2f) mtx=%u proj=%d -> clip(%.3f,%.3f,%.3f,%.3f)\n", x, y, z, mtx,
+				        s_have_proj, out[0], out[1], out[2], out[3]);
+			}
+		}
+	} else {
+		out[0] = out[1] = out[2] = 0.0f;
+		out[3]                   = 1.0f;
 	}
 	*pp = p;
 	return 1;
@@ -328,13 +475,15 @@ void GXCallDisplayList(void* list, u32 numBytes)
 		vtxfmt = op & 0x07;
 
 		for (i = 0; i < count; i++) {
-			if (!read_vertex(&p, end, vtxfmt)) {
+			float* slot = prim_slot((size_t)i);
+			if (!slot || !read_vertex(&p, end, vtxfmt, slot)) {
 				s_unsupported = 1;
 				fprintf(stderr, "gfx: could not decode vertex %d/%u of opcode 0x%02x; geometry disabled\n", i, count,
 				        op);
 				return;
 			}
 		}
+		emit_primitive((u8)(op & 0xF8), (size_t)count);
 	}
 }
 

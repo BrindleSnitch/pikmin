@@ -140,6 +140,8 @@ static int png_write(const char* path, const unsigned char* rgba, int w, int h)
 }
 
 /* ------------------------------------------------------------- context --*/
+static void gfx_init_geometry(void);
+
 static void gfx_init(void)
 {
 	PFNEGLGETPLATFORMDISPLAYEXTPROC getPlatformDisplay;
@@ -205,7 +207,102 @@ static void gfx_init(void)
 	fprintf(stderr, "gfx: %s / %s\n", (const char*)glGetString(GL_VERSION), (const char*)glGetString(GL_RENDERER));
 	fprintf(stderr, "gfx: writing every %ld frame(s) to %s\n", s_every, s_outdir);
 	glViewport(0, 0, FB_WIDTH, FB_HEIGHT);
-	glEnable(GL_DEPTH_TEST);
+	/* Depth testing stays off for now. GX clips z to [-w, 0] where GL expects
+	 * [-w, w], so depth comparisons would be meaningful only after that range
+	 * is remapped -- and getting geometry visible at all comes first. */
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	gfx_init_geometry();
+}
+
+/* ----------------------------------------------------------- geometry --
+ * Vertices arrive from gfx_vtx.c already in clip space, so the vertex shader is
+ * a passthrough and no uniforms are needed yet. Everything is drawn in one flat
+ * colour: the point of this stage is to confirm the display list parser is
+ * producing geometry in the right places, not to look right.
+ */
+extern const float* gfxVertexData(size_t* count);
+extern void gfxVertexReset(void);
+
+static GLuint s_prog, s_vbo, s_vao;
+
+static GLuint compile(GLenum kind, const char* src)
+{
+	GLuint sh = glCreateShader(kind);
+	GLint ok  = 0;
+	glShaderSource(sh, 1, &src, NULL);
+	glCompileShader(sh);
+	glGetShaderiv(sh, GL_COMPILE_STATUS, &ok);
+	if (!ok) {
+		char log[512];
+		glGetShaderInfoLog(sh, sizeof(log), NULL, log);
+		fprintf(stderr, "gfx: shader compile failed: %s\n", log);
+		glDeleteShader(sh);
+		return 0;
+	}
+	return sh;
+}
+
+static void gfx_init_geometry(void)
+{
+	static const char* vs = "#version 300 es\n"
+	                        "layout(location=0) in vec4 aPos;\n"
+	                        "void main(){ gl_Position = aPos; }\n";
+	static const char* fs = "#version 300 es\n"
+	                        "precision mediump float;\n"
+	                        "out vec4 o;\n"
+	                        "void main(){ o = vec4(0.85,0.86,0.90,1.0); }\n";
+	GLuint v, f;
+	GLint ok = 0;
+
+	v = compile(GL_VERTEX_SHADER, vs);
+	f = compile(GL_FRAGMENT_SHADER, fs);
+	if (!v || !f) {
+		return;
+	}
+	s_prog = glCreateProgram();
+	glAttachShader(s_prog, v);
+	glAttachShader(s_prog, f);
+	glLinkProgram(s_prog);
+	glGetProgramiv(s_prog, GL_LINK_STATUS, &ok);
+	if (!ok) {
+		char log[512];
+		glGetProgramInfoLog(s_prog, sizeof(log), NULL, log);
+		fprintf(stderr, "gfx: program link failed: %s\n", log);
+		s_prog = 0;
+		return;
+	}
+	glDeleteShader(v);
+	glDeleteShader(f);
+
+	glGenVertexArrays(1, &s_vao);
+	glGenBuffers(1, &s_vbo);
+	glBindVertexArray(s_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+	fprintf(stderr, "gfx: geometry pipeline ready\n");
+}
+
+static void gfx_draw_frame(void)
+{
+	size_t floats;
+	const float* data = gfxVertexData(&floats);
+	static unsigned long announced;
+
+	if (!s_prog || !data || floats < 12) {
+		return;
+	}
+	if (!announced) {
+		announced = 1;
+		fprintf(stderr, "gfx: first drawn frame has %lu triangles\n", (unsigned long)(floats / 4 / 3));
+	}
+
+	glUseProgram(s_prog);
+	glBindVertexArray(s_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
+	glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(floats * sizeof(float)), data, GL_STREAM_DRAW);
+	glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(floats / 4));
 }
 
 /* ------------------------------------------------------------------ GX --*/
@@ -252,6 +349,8 @@ void GXCopyDisp(void* dest, GXBool doClear)
 	}
 
 	s_frame++;
+	gfx_draw_frame();
+
 	if (s_every > 0 && (s_frame % (unsigned long)s_every) == 0) {
 		if (!pixels) {
 			pixels = (unsigned char*)malloc((size_t)FB_WIDTH * FB_HEIGHT * 4);
@@ -267,7 +366,9 @@ void GXCopyDisp(void* dest, GXBool doClear)
 		}
 	}
 
-	/* GXCopyDisp ends a frame; the next one starts from the clear colour. */
+	/* GXCopyDisp ends a frame; the next one starts from the clear colour with
+	 * an empty geometry buffer. */
 	glClearColor(s_clear[0], s_clear[1], s_clear[2], s_clear[3]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	gfxVertexReset();
 }
