@@ -67,12 +67,36 @@ bool ID32::match(u32 id, char wild) immut
 /**
  * @brief Updates mId from mStringID.
  */
+/*
+ * A four-character ID and its numeric form have to agree with the rest of the
+ * world, and that makes these two functions byte-order dependent.
+ *
+ * The original copies the characters straight over the bytes of mId in memory
+ * order. On the GameCube that puts the first character in the most significant
+ * byte, so "x98\0" is 0x78393800 -- the same value the compiler gives a
+ * four-character literal like 'x98\0', and the same value that ends up packed
+ * into parameter files on disc. On a little-endian host the identical copy
+ * produces 0x00383978 instead, so an ID built in memory never compares equal to
+ * the one read back from a file. Parameters::read then fails every ID match,
+ * falls through to its skip-by-size path, desynchronises, and runs off the end
+ * of the file.
+ *
+ * Writing the characters in reverse on a little-endian host keeps mId
+ * numerically identical to what the console produced, which is what every
+ * comparison, file and literal expects.
+ */
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define ID32_BYTE(i) (3 - (i))
+#else
+#define ID32_BYTE(i) (i)
+#endif
+
 void ID32::updateID()
 {
 	char* id = reinterpret_cast<char*>(&mId);
 
 	for (int i = 0; i < 4; i++) {
-		id[i] = this->mStringID[i];
+		id[ID32_BYTE(i)] = this->mStringID[i];
 	}
 }
 
@@ -84,7 +108,7 @@ void ID32::updateString()
 	char* id = reinterpret_cast<char*>(&mId);
 
 	for (int i = 0; i < 4; i++) {
-		mStringID[i] = id[i];
+		mStringID[i] = id[ID32_BYTE(i)];
 	}
 
 	mStringID[4] = 0;

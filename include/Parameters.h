@@ -31,7 +31,26 @@ public:
 	 * @brief Converts a string to a fourcc ID and sets it as the ID.
 	 * @param id String ID to convert and store.
 	 */
-	void Set(immut char* id) { mID = *(s32*)id; }
+	void Set(immut char* id)
+	{
+		// Reinterpreting the four characters as an integer is byte-order
+		// dependent, and the order matters because these IDs are compared
+		// against ones packed into parameter files on disc. On the GameCube
+		// "t00\0" becomes 0x74303000; the same reinterpretation on a
+		// little-endian host yields 0x00303074, so no parameter ever matches its
+		// entry in the file. Parameters::read then takes its skip-by-size path
+		// for every entry, loses alignment, misses the file terminator and runs
+		// off the end -- where BufferedInputStream spins forever rather than
+		// failing.
+		//
+		// Assembling the value explicitly is byte-order independent and gives
+		// every host the number the console produced.
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+		mID = ((long)(u8)id[0] << 24) | ((long)(u8)id[1] << 16) | ((long)(u8)id[2] << 8) | (long)(u8)id[3];
+#else
+		mID = *(s32*)id;
+#endif
+	}
 
 	/**
 	 * @brief Gets the fourcc ID.
