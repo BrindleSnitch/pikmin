@@ -696,7 +696,7 @@ void TextureCacher::cacheTexture(CacheTexture* tex)
 			if (!alloc) {
 				ERROR("Could not get memory from cache! %d : %d\n", texSize, largestBlockFree);
 			}
-			tex->mTexImage->mTextureData = (void*)OSRoundDown32B((u32)alloc + 0x33);
+			tex->mTexImage->mTextureData = (void*)OSRoundDown32B((sptr)alloc + 0x33);
 			TexCacheInfo* info           = (TexCacheInfo*)alloc;
 			info->mActiveCacheSlot       = &tex->mActiveCache;
 			tex->mActiveCache            = info;

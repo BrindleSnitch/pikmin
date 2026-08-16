@@ -8,6 +8,52 @@
 #include "sysNew.h"
 #endif
 
+/*
+ * Disc data is big-endian, because the GameCube was.
+ *
+ * Every structured file the game reads -- textures, models, animations,
+ * collision, layouts -- stores its multi-byte fields in that order, and the
+ * original code simply read them straight into memory because no conversion was
+ * needed. On a little-endian host every one of those fields comes back
+ * byte-reversed: a 464x56 texture reads as 53249x14336, and the size computed
+ * from it asks for 728MB.
+ *
+ * These four accessors are the choke point. Formats do not parse raw buffers;
+ * they read field by field through readByte/readShort/readInt/readFloat (see
+ * BtiHeader::read in Texture.h), so swapping here converts every one of them at
+ * once rather than per format.
+ *
+ * Keyed on the host's byte order rather than on the compiler, so this is
+ * inert wherever the host is already big-endian -- including the PowerPC
+ * matching build, which is therefore untouched.
+ */
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define STREAM_SWAP_FROM_DISC 1
+#else
+#define STREAM_SWAP_FROM_DISC 0
+#endif
+
+#if STREAM_SWAP_FROM_DISC
+static inline short streamSwap16(short v) { return (short)__builtin_bswap16((unsigned short)v); }
+static inline int streamSwap32(int v) { return (int)__builtin_bswap32((unsigned int)v); }
+static inline f32 streamSwapF32(f32 v)
+{
+	// Reverse the bytes, not the value: punning through a union keeps the bit
+	// pattern intact where a numeric conversion would not.
+	union {
+		f32 f;
+		unsigned int u;
+	} c;
+	c.f = v;
+	c.u = __builtin_bswap32(c.u);
+	return c.f;
+}
+#else
+static inline short streamSwap16(short v) { return v; }
+static inline int streamSwap32(int v) { return v; }
+static inline f32 streamSwapF32(f32 v) { return v; }
+#endif
+
 /**
  * @todo: Documentation
  */
@@ -15,7 +61,7 @@ int Stream::readInt()
 {
 	int i;
 	read(&i, sizeof(int));
-	return i;
+	return streamSwap32(i);
 }
 
 /**
@@ -35,7 +81,7 @@ short Stream::readShort()
 {
 	short s;
 	read(&s, sizeof(short));
-	return s;
+	return streamSwap16(s);
 }
 
 /**
@@ -45,7 +91,7 @@ f32 Stream::readFloat()
 {
 	f32 f;
 	read(&f, sizeof(f32));
-	return f;
+	return streamSwapF32(f);
 }
 
 /**
