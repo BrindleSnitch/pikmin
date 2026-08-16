@@ -84,9 +84,12 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--include", action="append", default=[],
                     help="header to #include in the generated file")
+    ap.add_argument("--exclude", action="append", default=[],
+                    help="symbol implemented for real elsewhere; do not stub it")
     args = ap.parse_args()
 
     wanted = [s.strip() for s in open(args.symbols) if s.strip().startswith(args.prefix)]
+    wanted = [w for w in wanted if w not in set(args.exclude)]
     decls = collect_decls()
 
     bodies, missing, names = [], [], []

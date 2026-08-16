@@ -95,7 +95,7 @@ echo "platform objects: $(ls "$PLATFORM_DIR"/*.o | wc -l)"
 # truncating here. Mapping the arena low fixed heap pointers; this fixes the
 # same problem for everything with static storage, which the arena trick cannot
 # reach.
-if $CXX -no-pie -o "$OUT" "$BUILD_DIR"/*.o "$PLATFORM_DIR"/*.o $SDL_LIBS -lpthread -lm 2>/tmp/link.err; then
+if $CXX -no-pie -o "$OUT" "$BUILD_DIR"/*.o "$PLATFORM_DIR"/*.o $SDL_LIBS -lEGL -lGLESv2 -lz -lpthread -lm 2>/tmp/link.err; then
 	echo "linked: $OUT"
 	ls -la "$OUT"
 else
