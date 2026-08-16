@@ -88,6 +88,30 @@ void GXSetProjection(const Mtx44 mtx, GXProjectionType type)
 
 void GXLoadPosMtxImm(const Mtx mtx, u32 id)
 {
+	{
+		static int shown;
+		static unsigned long total, bad;
+		int r, c, isnan = 0;
+		for (r = 0; r < 3; r++) {
+			for (c = 0; c < 4; c++) {
+				if (mtx[r][c] != mtx[r][c]) {
+					isnan = 1;
+				}
+			}
+		}
+		total++;
+		if (isnan) {
+			bad++;
+		}
+		if (shown < 4) {
+			shown++;
+			fprintf(stderr, "gfx: LoadPosMtx id=%u nan=%d  row0: %g %g %g %g\n", id, isnan, mtx[0][0], mtx[0][1],
+			        mtx[0][2], mtx[0][3]);
+		}
+		if ((total % 50000) == 0) {
+			fprintf(stderr, "gfx: LoadPosMtx %lu calls, %lu with NaN\n", total, bad);
+		}
+	}
 	if (id < MAX_PNMTX) {
 		memcpy(s_posmtx[id], mtx, sizeof(s_posmtx[0]));
 	}
@@ -194,20 +218,42 @@ static float rdf32(const u8* p)
 	return c.f;
 }
 
-/* One component of a position, honouring the fixed-point shift. */
-static float read_pos_comp(const u8* p, u8 type, u8 frac)
+/*
+ * One component of a position, honouring the fixed-point shift.
+ *
+ * `host` selects the byte order, and the two cases have genuinely different
+ * provenance rather than being a guess:
+ *
+ *   Display list bytes are read straight off the disc as an opaque blob and
+ *   never pass through Stream, so they are still big-endian. The vertex indices
+ *   in them decode correctly that way -- 8957, 9028, 9320 for a model of about
+ *   ten thousand vertices.
+ *
+ *   Vertex arrays reach memory through the model loader, which reads them field
+ *   by field through Stream::readFloat and therefore has already converted them
+ *   to host order. Swapping again produced 3.19e-10 and 7.28e+22 where the same
+ *   bytes read natively give 54.67 and 90.73.
+ */
+static float read_pos_comp(const u8* p, u8 type, u8 frac, int host)
 {
 	float scale = 1.0f / (float)(1u << frac);
+	u16 h16     = host ? *(const u16*)p : rd16(p);
+
 	switch (type) {
 	case GX_U8:
 		return (float)p[0] * scale;
 	case GX_S8:
 		return (float)(signed char)p[0] * scale;
 	case GX_U16:
-		return (float)rd16(p) * scale;
+		return (float)h16 * scale;
 	case GX_S16:
-		return (float)(short)rd16(p) * scale;
+		return (float)(short)h16 * scale;
 	case GX_F32:
+		if (host) {
+			float f;
+			memcpy(&f, p, sizeof(f));
+			return f;
+		}
 		return rdf32(p);
 	default:
 		return 0.0f;
@@ -400,12 +446,30 @@ static int read_vertex(const u8** pp, const u8* end, int vtxfmt, float out[4])
 					return 0;
 				}
 				src = s_array[attr].base + (size_t)idx * s_array[attr].stride;
+				{
+					static int shown;
+					if (shown < 4) {
+						union {
+							u32 u;
+							float f;
+						} be, le;
+						shown++;
+						be.u = rd32(src);
+						le.u = *(const u32*)src;
+						fprintf(stderr,
+						        "gfx: POS idx=%u src=%p raw=%02x%02x%02x%02x  BE=%g  LE=%g\n", idx,
+						        (const void*)src, src[0], src[1], src[2], src[3], be.f, le.f);
+					}
+				}
 			}
 			if (cs > 0) {
-				x = read_pos_comp(src, type, frac);
-				y = read_pos_comp(src + cs, type, frac);
-				z = (n == 3) ? read_pos_comp(src + 2 * cs, type, frac) : 0.0f;
-				have = 1;
+				/* Indexed data was converted by the loader; inline data is raw
+				 * disc bytes and still big-endian. */
+				int host = (s_desc[attr] == GX_INDEX8 || s_desc[attr] == GX_INDEX16);
+				x        = read_pos_comp(src, type, frac, host);
+				y        = read_pos_comp(src + cs, type, frac, host);
+				z        = (n == 3) ? read_pos_comp(src + 2 * cs, type, frac, host) : 0.0f;
+				have     = 1;
 			}
 		}
 		p += sz;
@@ -413,17 +477,39 @@ static int read_vertex(const u8** pp, const u8* end, int vtxfmt, float out[4])
 
 	if (have) {
 		transform(x, y, z, mtx, out);
+		/* About 8% of the matrices the game hands to GXLoadPosMtxImm contain
+		 * NaN. Where that comes from is a separate question, but a single one
+		 * poisons every triangle drawn through it and a NaN vertex takes the
+		 * whole primitive with it, so non-finite results are dropped rather
+		 * than submitted. */
+		if (out[0] != out[0] || out[1] != out[1] || out[2] != out[2] || out[3] != out[3]) {
+			have = 0;
+		}
+	}
+
+	if (have) {
 		{
 			static int shown;
-			if (shown < 6) {
+			if (shown < 2) {
+				int r;
 				shown++;
-				fprintf(stderr, "gfx: model(%.2f,%.2f,%.2f) mtx=%u proj=%d -> clip(%.3f,%.3f,%.3f,%.3f)\n", x, y, z, mtx,
-				        s_have_proj, out[0], out[1], out[2], out[3]);
+				fprintf(stderr, "gfx: model(%.2f,%.2f,%.2f) mtx=%u -> clip(%g,%g,%g,%g)\n", x, y, z, mtx, out[0],
+				        out[1], out[2], out[3]);
+				for (r = 0; r < 3; r++) {
+					fprintf(stderr, "   posmtx[%u] row%d: %g %g %g %g\n", mtx, r, s_posmtx[mtx][r][0],
+					        s_posmtx[mtx][r][1], s_posmtx[mtx][r][2], s_posmtx[mtx][r][3]);
+				}
+				for (r = 0; r < 4; r++) {
+					fprintf(stderr, "   proj row%d: %g %g %g %g\n", r, s_proj[r][0], s_proj[r][1], s_proj[r][2],
+					        s_proj[r][3]);
+				}
 			}
 		}
 	} else {
-		out[0] = out[1] = out[2] = 0.0f;
-		out[3]                   = 1.0f;
+		/* w = 0 makes the vertex degenerate, so any triangle using it is
+		 * discarded. Collapsing to (0,0,0,1) instead would put it at the centre
+		 * of the screen and fan visible artefacts out of it. */
+		out[0] = out[1] = out[2] = out[3] = 0.0f;
 	}
 	*pp = p;
 	return 1;
@@ -441,6 +527,24 @@ void GXCallDisplayList(void* list, u32 numBytes)
 
 	if (!list || !numBytes || s_unsupported) {
 		return;
+	}
+
+	{
+		static int dumped;
+		if (!dumped) {
+			static const char* const kind[] = { "NONE", "DIRECT", "IDX8", "IDX16" };
+			int a;
+			dumped = 1;
+			fprintf(stderr, "gfx: vertex descriptor at first list (op 0x%02x, %u bytes):\n", ((const u8*)list)[0],
+			        numBytes);
+			for (a = 0; a < MAX_ATTR; a++) {
+				if (s_desc[a] != GX_NONE) {
+					fprintf(stderr, "   attr %2d %-6s cnt=%u type=%u frac=%u arraybase=%p stride=%u size=%d\n", a,
+					        s_desc[a] < 4 ? kind[s_desc[a]] : "?", s_fmt[0][a].cnt, s_fmt[0][a].type, s_fmt[0][a].frac,
+					        (const void*)s_array[a].base, s_array[a].stride, attr_stream_size(0, a));
+				}
+			}
+		}
 	}
 
 	{
