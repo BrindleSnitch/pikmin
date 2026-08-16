@@ -12,7 +12,11 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
-CXX="${CXX:-clang++}"
+# Default to the host's native toolchain. On a device carrying both a Bionic
+# and a glibc compiler these are not interchangeable -- objects built against
+# one cannot link against libraries built for the other -- so the whole tree
+# must use a single one. See PORTING.md.
+CXX="${CXX:-g++}"
 BUILD_DIR="${BUILD_DIR:-/root/pikmin-build}"
 EXCLUDED="tools/port/excluded.txt"
 FLAGS=(-c -std=c++98 -O0 -fno-strict-aliasing -I include -I include/stl
