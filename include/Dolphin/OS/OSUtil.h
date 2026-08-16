@@ -14,8 +14,19 @@ BEGIN_SCOPE_EXTERN_C
 //////////////////////////////////
 
 // Macros for rounding to 32-alignment.
+//
+// Applied to both sizes and pointers, so the intermediate type has to be wide
+// enough to hold an address. u32 was on the console; off it, rounding a pointer
+// would truncate. sptr is pointer-sized on any host and 32-bit under the
+// PowerPC EABI. MetroWerks keeps the original spelling so the matching build is
+// byte-for-byte unaffected.
+#if defined(__MWERKS__)
 #define OSRoundUp32B(x)   (((u32)(x) + 0x1F) & ~(0x1F))
 #define OSRoundDown32B(x) (((u32)(x)) & ~(0x1F))
+#else
+#define OSRoundUp32B(x)   (((sptr)(x) + 0x1F) & ~((sptr)0x1F))
+#define OSRoundDown32B(x) (((sptr)(x)) & ~((sptr)0x1F))
+#endif
 
 // Address conversions.
 #define OSPhysicalToCached(paddr)    ((void*)((u32)(paddr) + OS_BASE_CACHED))

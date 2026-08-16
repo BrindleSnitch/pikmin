@@ -565,7 +565,11 @@ struct AramStream : public RandomAccessStream {
 	virtual void read(void* data, int size)       // _3C (weak)
 	{
 		int readSize = OSRoundUp32B(size);
-		gsys->copyCacheToRam((u32)data, mBaseAddress + mOffset, readSize);
+		// copyCacheToRam takes hardware addresses, which were 32-bit on the
+		// console. Truncating a host pointer to u32 is safe only because the
+		// arena is mapped below 4GB (see OSInit); via sptr so the narrowing is
+		// deliberate rather than something the compiler had to be talked into.
+		gsys->copyCacheToRam((u32)(sptr)data, mBaseAddress + mOffset, readSize);
 		gsys->copyWaitUntilDone();
 		mOffset += readSize;
 	}

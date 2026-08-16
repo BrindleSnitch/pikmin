@@ -63,12 +63,17 @@ public:
 	static inline int max() { return 0x7FFFFFFF; }
 };
 
+// Only a distinct type from `int` where s32 is `long` -- see types.h. Anywhere
+// else this specialisation and numeric_limits<int> above are the same thing,
+// and defining both is a redefinition error.
+#if defined(__MWERKS__)
 template <>
 class numeric_limits<s32> {
 public:
 	static inline s32 min() { return -0x80000000; }
 	static inline s32 max() { return 0x7FFFFFFF; }
 };
+#endif
 
 template <>
 class numeric_limits<u8> {
@@ -91,12 +96,16 @@ public:
 	static inline uint max() { return 0xFFFFFFFF; }
 };
 
+// Same as numeric_limits<s32> above: identical to numeric_limits<uint> unless
+// u32 is `unsigned long`.
+#if defined(__MWERKS__)
 template <>
 class numeric_limits<u32> {
 public:
 	static inline u32 min() { return 0x0; }
 	static inline u32 max() { return 0xFFFFFFFF; }
 };
+#endif
 
 } // namespace std
 #endif

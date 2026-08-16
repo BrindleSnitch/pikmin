@@ -330,7 +330,7 @@ void System::parseArchiveDirectory(immut char* arcPath, immut char* dirPath)
 			size = stream.mSize;
 		}
 		((DVDStream*)&stream)->read(DVDStream::readBuffer, size);
-		gsys->copyRamToCache((u32)DVDStream::readBuffer, size, a + pos);
+		gsys->copyRamToCache((u32)(sptr)DVDStream::readBuffer, size, a + pos);
 		gsys->copyWaitUntilDone();
 		pos += size;
 		pend -= size;
@@ -907,7 +907,7 @@ void System::Initialise()
 	void* hi   = OSGetArenaHi();
 	mHeapStart = OSRoundUp32B(OSInitAlloc(lo, hi, 1));
 	hi         = (void*)OSRoundDown32B(hi);
-	mHeapEnd   = (u32)hi - mHeapStart;
+	mHeapEnd   = (u32)(sptr)hi - mHeapStart;
 #if defined(VERSION_GPIP01)
 	if (mHeapEnd <= 0x1800000)
 #else
@@ -1068,7 +1068,7 @@ void* loadFunc(void* idler)
 	while (true) {
 		OSMessage msg;
 		OSReceiveMessage(&loadMesgQueue, &msg, OS_MESSAGE_BLOCK);
-		if ((u32)msg == 'QUIT') {
+		if ((u32)(sptr)msg == 'QUIT') {
 			OSSendMessage(&sysMesgQueue, (OSMessage)'CONT', OS_MESSAGE_NOBLOCK);
 			break;
 		}
@@ -1241,7 +1241,7 @@ u32 System::copyRamToCache(u32 mainMemAddr, u32 size, u32 aramCacheAddr)
 	DCStoreRange((void*)mainMemAddr, size);
 
 	// send request to the aram queue (high priority)
-	ARQPostRequest(cache, (u32)cache, ARQ_TYPE_MRAM_TO_ARAM, ARQ_PRIORITY_HIGH, mainMemAddr, adjustedCacheAddr, size, doneDMA);
+	ARQPostRequest(cache, (u32)(sptr)cache, ARQ_TYPE_MRAM_TO_ARAM, ARQ_PRIORITY_HIGH, mainMemAddr, adjustedCacheAddr, size, doneDMA);
 
 	return adjustedCacheAddr;
 
@@ -1278,7 +1278,7 @@ void System::copyCacheToRam(u32 mainMemAddr, u32 aramCacheAddr, u32 size)
 	DCInvalidateRange((void*)mainMemAddr, size);
 
 	// send request to the aram queue (high priority)
-	ARQPostRequest(cache, (u32)cache, ARQ_TYPE_ARAM_TO_MRAM, ARQ_PRIORITY_HIGH, aramCacheAddr, mainMemAddr, size, doneDMA);
+	ARQPostRequest(cache, (u32)(sptr)cache, ARQ_TYPE_ARAM_TO_MRAM, ARQ_PRIORITY_HIGH, aramCacheAddr, mainMemAddr, size, doneDMA);
 }
 
 /**
@@ -1331,7 +1331,7 @@ void System::copyCacheToTexture(CacheTexture* tex)
 
 	tex->mSystemCache = cache;
 
-	u32 mainMemAddr = (u32)tex->mTexImage->mTextureData;
+	u32 mainMemAddr = (u32)(sptr)tex->mTexImage->mTextureData;
 	u32 aramAddr    = tex->mAramAddress;
 	u32 size        = tex->mTexImage->mDataSize;
 
@@ -1339,7 +1339,7 @@ void System::copyCacheToTexture(CacheTexture* tex)
 
 	gsys->mTexComplete = FALSE;
 	DCInvalidateRange((void*)mainMemAddr, size);
-	ARQPostRequest(cache, (u32)tex, ARQ_TYPE_ARAM_TO_MRAM, ARQ_PRIORITY_HIGH, aramAddr, (u32)mainMemAddr, size, freeBuffer);
+	ARQPostRequest(cache, (u32)(sptr)tex, ARQ_TYPE_ARAM_TO_MRAM, ARQ_PRIORITY_HIGH, aramAddr, (u32)mainMemAddr, size, freeBuffer);
 
 	while (mTexComplete == FALSE) { }
 }

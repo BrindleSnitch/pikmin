@@ -395,7 +395,7 @@ void StdSystem::invalidateObjs(u32 lowerBound, u32 upperBound)
 	for (GfxobjInfo* c = mGfxobjInfo.mNext; c != &mGfxobjInfo;) {
 		next = c->mNext;
 
-		u32 address = reinterpret_cast<u32>(c);
+		u32 address = (u32)(sptr)c;
 		if (address >= lowerBound && address < upperBound) {
 			c->remove();
 		}
@@ -600,7 +600,7 @@ void StdSystem::loadBundle(immut char* pPath, bool loadWithCache)
 				cacheTex->mTexImage    = texImg;
 				newTex                 = cacheTex;
 				texImg->importBti(cacheTex, *fs, (u8*)OSRoundUp32B(mGraphics->mMatrixBuffer));
-				cacheTex->mAramAddress = copyRamToCache((u32)texImg->mTextureData, texImg->mDataSize, 0);
+				cacheTex->mAramAddress = copyRamToCache((u32)(sptr)texImg->mTextureData, texImg->mDataSize, 0);
 				copyWaitUntilDone();
 				texImg->mTextureData = nullptr;
 			} else {

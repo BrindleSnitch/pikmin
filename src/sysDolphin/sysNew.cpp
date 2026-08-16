@@ -47,8 +47,8 @@ void* System::alloc(size_t size)
 			info = static_cast<MemInfo*>(info->mParent);
 		}
 
-		if ((u32)result & 0x3) {
-			ERROR("acquired memory not long aligned %08x!!\n", (u32)result);
+		if ((u32)(sptr)result & 0x3) {
+			ERROR("acquired memory not long aligned %08x!!\n", (u32)(sptr)result);
 		}
 
 		u32* resPtr = (u32*)result;
@@ -77,7 +77,7 @@ void* System::alloc(size_t size)
  */
 void* operator new(size_t size, int alignment)
 {
-	u32 alloc  = (u32)System::alloc(size + alignment);
+	u32 alloc  = (u32)(sptr)System::alloc(size + alignment);
 	u32 result = (alloc + (alignment - 1)) & ~(alignment - 1);
 	return (void*)result;
 }
@@ -87,7 +87,7 @@ void* operator new(size_t size, int alignment)
  */
 void* operator new[](size_t size, int alignment)
 {
-	u32 alloc  = (u32)System::alloc(size + alignment);
+	u32 alloc  = (u32)(sptr)System::alloc(size + alignment);
 	u32 result = (alloc + (alignment - 1)) & ~(alignment - 1);
 	return (void*)result;
 }
