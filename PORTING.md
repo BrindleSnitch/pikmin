@@ -86,6 +86,72 @@ are `wSocket`, `tcpStream`, `moduleMgr`, `attachModule`, `atxDirectRouter`, and
 the `ui*` set — a debug console, a socket layer, and an in-house window toolkit
 that Nintendo's developers ran on PC. None of it is needed to play the game.
 
+## The platform layer
+
+`tools/port/build.sh` compiles the portable set to aarch64 objects — 386 of 386,
+no failures. `tools/port/symbols.sh` then reports every symbol those objects
+reference but do not define, which is the platform layer's surface measured
+rather than guessed.
+
+```
+objects        386
+defined      16283
+undefined     3522
+still missing  263
+```
+
+| Subsystem | Missing | Notes |
+| --- | ---: | --- |
+| `GX*` | 78 | Only 43 are referenced by game code; the other 35 exist solely because `src/sysDolphin`, the backend being replaced, is in the compile set. |
+| `Jac_*` | 44 | The game's JAudio interface. |
+| `OS*` | 35 | Threads, alarms, heaps, time. |
+| `CARD*` | 23 | Memory card. Stubbable for a long time. |
+| Matrix math | 9 | `C_MTX*` / `PSMTX*`. |
+| `VI*` | 9 | Video interface. |
+| `PAD*` | 7 | Controller. |
+| `DVD*` | 6 | File I/O. |
+| `HIO*` | 5 | Host debug I/O to a PC. Stub. |
+| `AR*` | 3 | Audio RAM. |
+| Cache ops | 3 | `DCFlushRange` and friends — no-ops off-GameCube. |
+| C library | ~10 | Free once linked against libc. |
+
+### What that number does and does not mean
+
+Of the 263, **234 already have decompiled implementations in this repository** —
+`src/gx`, `src/os`, `src/dvd`, `src/vi`, `src/pad`, `src/card`, `src/mtx`,
+`src/jaudio` and so on, none of which were in the compile set. Only 29 are
+genuinely absent, and every one is C library (`sprintf`, `strstr`, `atoi`,
+`log`, `atan2f`, …) plus `__gxx_personality_v0` from libc++abi.
+
+So the **link** problem is nearly closed and a linking binary is much closer
+than expected. The **functional** problem is untouched, and the difference
+matters: those SDK sources target GameCube hardware directly. Across
+`src/{gx,os,vi,pad,si,exi,dvd,ar,dsp,ai}`, roughly a third of the files write to
+hardware registers at fixed physical addresses, and nine use PowerPC inline
+assembly. Compiled for ARM they would link and then write into memory that does
+not exist.
+
+The real gain is that the interface is now **fully specified and stable**. Each
+subsystem can be swapped for a host implementation one at a time, behind
+unchanged headers, with the decompiled original serving as an exact behavioural
+reference for what the replacement has to do.
+
+### Suggested order
+
+1. **Cache ops, `HIO*`, `CARD*`** — no-op or stub. Removes 31 symbols for almost
+   no work and no behavioural risk.
+2. **Matrix math** — pure computation. The `src/mtx` C paths port directly;
+   only the paired-single assembly variants need attention.
+3. **`OS*`** — heaps, time, threads onto host equivalents. Everything else
+   depends on this, so it comes before the interesting work.
+4. **`DVD*`** — retarget onto the extracted asset tree. Small surface, 6 symbols,
+   and it is what makes real data reachable.
+5. **`PAD*`** — SDL gamepad, plus touch later. Small and immediately testable.
+6. **`VI*` + `GX*`** — the renderer. 43 game-facing GX entry points, with
+   `src/sysCore/oglGraphics.cpp` as a reference for what a second backend has to
+   satisfy.
+7. **`Jac_*`** — audio, last. The game is playable without it.
+
 ## Assets
 
 The repository contains no game assets and never will; they come from a disc
