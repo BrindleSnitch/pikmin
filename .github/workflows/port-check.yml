@@ -1,0 +1,25 @@
+name: Port compile check
+
+on:
+  push:
+    branches: [port]
+  pull_request:
+    branches: [port]
+  workflow_dispatch:
+
+# The upstream decomp's own build (CodeWarrior under wibo, producing a PowerPC
+# .dol) is untouched by this and keeps running from its own workflow. This job
+# only asks whether the sources still parse for a modern little-endian target.
+
+jobs:
+  syntax-check:
+    name: clang syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record compiler version
+        run: clang++ --version
+
+      - name: Check portable sources
+        run: ./tools/port/check.sh
