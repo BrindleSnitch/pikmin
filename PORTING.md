@@ -136,6 +136,41 @@ subsystem can be swapped for a host implementation one at a time, behind
 unchanged headers, with the decompiled original serving as an exact behavioural
 reference for what the replacement has to do.
 
+### Progress
+
+`port/platform/` now supplies OS, DVD, CARD, AR, HIO and the cache ops, and
+`src/mtx` supplies the matrix maths. That takes the missing SDK surface from 263
+to 138 — GX 78, `Jac_*` 44, VI 9, PAD 7. (A raw symbol count also lists ~79 libc
+and pthread names; those resolve at link time and are not work.)
+
+| File | Supplies | Real or stub |
+| --- | --- | --- |
+| `os_host.c` | 35 `OS*` | Real: pthreads, POSIX clocks, a 24MB arena. |
+| `dvd_host.c` | 6 `DVD*` | Real: `pread` against the extracted tree. |
+| `card.c` | 23 `CARD*` | Stub: reports no card, a state the game already handles. |
+| `stubs.c` | cache, `HIO*`, `AR*` | No-op by nature, or deferred with audio. |
+
+**None of this has been run.** It compiles; that is the entire claim. Threads in
+particular are the likeliest source of trouble: GameCube threads are
+cooperatively scheduled and start suspended, and while the suspend-on-create
+behaviour is reproduced, any code that relied on cooperative scheduling for
+mutual exclusion will race here where it did not on hardware.
+
+#### A trap worth remembering
+
+`src/mtx` defines each paired-single routine as
+
+```c
+void PSMTXConcat(...) { #ifdef __MWERKS__ asm { ... } #endif }
+```
+
+so on any other compiler those bodies are **empty**. Adding `src/mtx` to a build
+therefore links cleanly and silently turns every matrix operation into a no-op —
+no error, no warning, just a game that renders nonsense. All 36 now delegate to
+their exact `C_` twins under `#else`, verified by checking compiled symbol sizes
+rather than trusting the edit. Expect the same shape elsewhere in the SDK: a
+`#ifdef __MWERKS__` around an asm body is a silent hole, not a compile error.
+
 ### Suggested order
 
 1. **Cache ops, `HIO*`, `CARD*`** — no-op or stub. Removes 31 symbols for almost

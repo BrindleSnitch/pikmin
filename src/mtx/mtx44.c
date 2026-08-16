@@ -171,6 +171,8 @@ void PSMTX44Identity(register Mtx44 m)
 		psq_st  c0, 0x0034 (m), 0, 0
 		stfs    c1, 0x003c (m)
 	}
+#else
+	C_MTX44Identity(m);
 #endif
 }
 
@@ -231,6 +233,8 @@ void PSMTX44Copy(register const Mtx44 src, register Mtx44 dst)
 		psq_l   f1, 0x0038 (src), 0, 0
 		psq_st  f1, 0x0038 (dst), 0, 0
 	}
+#else
+	C_MTX44Copy(src, dst);
 #endif
 }
 
@@ -563,6 +567,8 @@ void PSMTX44Trans(register Mtx44 m, register f32 xT, register f32 yT, register f
 		psq_st      c_zero, 0x30 (m), 0, 0
 		psq_st      c_01,   0x38 (m), 0, 0
 	}
+#else
+	C_MTX44Trans(m, xT, yT, zT);
 #endif
 }
 
@@ -688,6 +694,8 @@ void PSMTX44Scale(register Mtx44 m, register f32 xS, register f32 yS, register f
 		psq_st  c_zero, 0x34 (m), 0, 0
 		stfs    c_one,  0x3c (m)
 	}
+#else
+	C_MTX44Scale(m, xS, yS, zS);
 #endif
 }
 
@@ -948,6 +956,8 @@ void PSMTX44RotTrig(register Mtx44 m, register char axis, register f32 sinA, reg
 
 	_end:
 	}
+#else
+	C_MTX44RotTrig(m, axis, sinA, cosA);
 #endif
 }
 
@@ -1080,6 +1090,8 @@ void PSMTX44RotAxisRad(register Mtx44 m, register const Vec* axis, register f32 
         psq_st      tmp4, 0x20 (m), 0, 0
         psq_st      tmp5, 0x28 (m), 0, 0
 	}
+#else
+	C_MTX44RotAxisRad(m, axis, rad);
 #endif
 }
 

@@ -55,6 +55,8 @@ void PSMTXIdentity(register Mtx m)
 		psq_st      c_10,   0x0000 (m), 0, 0
 		psq_st      c_10,   0x0028 (m), 0, 0
 	}
+#else
+	C_MTXIdentity(m);
 #endif
 }
 
@@ -105,6 +107,8 @@ void PSMTXCopy(register const Mtx src, register Mtx dst)
 		psq_l   fp5, 0x0028 (src), 0, 0
 		psq_st  fp5, 0x0028 (dst), 0, 0
 	}
+#else
+	C_MTXCopy(src, dst);
 #endif
 }
 
@@ -277,6 +281,8 @@ void PSMTXTranspose(register const Mtx src, register Mtx xPose)
 		psq_st      trns1, 24 (xPose), 0, 0
 		stfs        row0b, 40 (xPose)
 	}
+#else
+	C_MTXTranspose(src, xPose);
 #endif
 }
 
@@ -686,6 +692,8 @@ void PSMTXRotTrig(register Mtx m, register char axis, register f32 sinA, registe
 
 	_end:
 	}
+#else
+	C_MTXRotTrig(m, axis, sinA, cosA);
 #endif
 }
 
@@ -781,6 +789,8 @@ void PSMTXRotAxisRad(register Mtx m, const Vec* axis, register f32 rad)
 		psq_st      tmp4, 0x20 (m), 0, 0
 		psq_st      tmp5, 0x28 (m), 0, 0
 	}
+#else
+	C_MTXRotAxisRad(m, axis, rad);
 #endif
 }
 
@@ -830,6 +840,8 @@ void PSMTXTrans(register Mtx m, register f32 xT, register f32 yT, register f32 z
 		stfs    zT, 44 (m)
 		stfs    c1,  0 (m)
 	}
+#else
+	C_MTXTrans(m, xT, yT, zT);
 #endif
 }
 
@@ -925,6 +937,8 @@ void PSMTXScale(register Mtx m, register f32 xS, register f32 yS, register f32 z
 		stfs    zS, 40 (m)
 		stfs    c0, 44 (m)
 	}
+#else
+	C_MTXScale(m, xS, yS, zS);
 #endif
 }
 
@@ -1072,6 +1086,8 @@ void PSMTXQuat(register Mtx m, register const Quaternion* quat)
 		psq_st      tmp3, 24 (m), 0, 0
 		psq_st      tmp9, 32 (m), 0, 0
 	}
+#else
+	C_MTXQuat(m, quat);
 #endif
 }
 
@@ -1146,6 +1162,8 @@ void PSMTXReflect(register Mtx m, const register Vec* p, const register Vec* n)
 		psq_st      tmp5, 0x0018 (m), 0, 0
 		psq_st      tmp6, 0x0028 (m), 0, 0
 	}
+#else
+	C_MTXReflect(m, p, n);
 #endif
 }
 

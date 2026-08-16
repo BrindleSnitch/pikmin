@@ -34,6 +34,8 @@ void PSVECAdd(register const Vec* a, const register Vec* b, register Vec* ab)
 		ps_add  fp7, fp3, fp5
 		psq_st  fp7, 0x0008 (ab), 1, 0
 	}
+#else
+	C_VECAdd(a, b, ab);
 #endif
 }
 
@@ -69,6 +71,8 @@ void PSVECSubtract(register const Vec* a, register const Vec* b, register Vec* a
 		ps_sub  fp7, fp3, fp5
 		psq_st  fp7, 0x0008 (a_b), 1, 0
 	}
+#else
+	C_VECSubtract(a, b, a_b);
 #endif
 }
 
@@ -103,6 +107,8 @@ void PSVECScale(register const Vec* src, register Vec* dst, register f32 scale)
 		ps_muls0  rz, vz, scale
 		psq_st    rz,  0x0008 (dst), 1, 0
 	}
+#else
+	C_VECScale(src, dst, scale);
 #endif
 }
 
@@ -163,7 +169,9 @@ void PSVECNormalize(register const Vec* src, register Vec* unit)
 		ps_muls0  v1_z, v1_z, rsqrt
 		psq_st    v1_z, 0x0008 (unit), 1, 0
 	}
-	#endif // clang-format on
+	#else
+	C_VECNormalize(src, unit);
+#endif // clang-format on
 }
 
 /**
@@ -245,6 +253,8 @@ f32 PSVECMag(register const Vec* v)
 		fsel     tmp0, tmp0, tmp0, tmp1
 		fmuls    res, tmp1, tmp0
 	}
+#else
+	return C_VECMag(v);
 #endif
 
 	return res;
@@ -283,6 +293,8 @@ f32 PSVECDotProduct(register const Vec* a, register const Vec* b)
 		ps_madd  fp3, fp5, fp4, fp2
 		ps_sum0  res, fp3, fp2, fp2
 	}
+#else
+	return C_VECDotProduct(a, b);
 #endif
 
 	return res;
@@ -331,6 +343,8 @@ void PSVECCrossProduct(register const Vec* a, register const Vec* b, register Ve
 		ps_neg      fp10, fp10
 		psq_st      fp10, 0x0004 (axb), 0, 0
 	}
+#else
+	C_VECCrossProduct(a, b, axb);
 #endif
 }
 
@@ -424,6 +438,8 @@ f32 PSVECSquareDistance(register const Vec* a, register const Vec* b)
 		ps_madd  fp5, fp6, fp6, fp4
 		ps_sum0  res, fp5, fp4, fp4
 	}
+#else
+	return C_VECSquareDistance(a, b);
 #endif
 
 	return res;
@@ -471,6 +487,8 @@ f32 PSVECDistance(register const Vec* a, register const Vec* b)
         fsel     fp1, fp1, fp1, fp0
         fmuls    res, fp0, fp1
 	}
+#else
+	return C_VECDistance(a, b);
 #endif
 
 	return res;
