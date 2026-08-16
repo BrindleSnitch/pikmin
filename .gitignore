@@ -10,6 +10,15 @@ __pycache__
 # Original files
 orig/*/*
 !orig/*/.gitkeep
+
+# Extracted disc contents. Game assets never belong in this repository --
+# extract_disc.py writes outside the tree by default, this is a backstop.
+assets/
+extracted/
+*.iso
+*.gcm
+*.rvz
+*.nkit.iso
 *.dol
 *.rel
 *.elf

@@ -70,6 +70,43 @@ avoids needing NKit's Windows tooling.
 Every multi-byte value on the disc is big-endian, including inside the asset
 formats. Byte-swapping on load is the bulk of the asset work.
 
+`tools/port/extract_disc.py` walks the FST and writes the tree out. Run it with
+`--check` first; it refuses to extract from an image whose file data is
+incomplete.
+
+### What GPIE01 contains
+
+3,495 files, 631 MB. By volume it is mostly video:
+
+| Format | Files | Size | What it is |
+| --- | ---: | ---: | --- |
+| `.h4m` | 6 | 471.5 MB | HVQM4 full-motion video. Decoder already decompiled in `src/hvqm4dec`. |
+| `.mod` | 194 | 50.2 MB | Models. |
+| `.aw` | 33 | 21.5 MB | JAudio wave archives. |
+| `.stx` | 13 | 17.6 MB | Streamed audio. |
+| `.anm` | 186 | 9.0 MB | Animations. |
+| `.bti` | 1002 | 8.6 MB | Textures (standard Nintendo BTI). |
+| `.blo` | 868 | — | 2D layouts, consumed by the P2D pane library. |
+| `.pcr` / `.gen` / `.dsk` / `.cin` | 810 | — | Routes, generators, disk/level config, cutscene scripts. |
+
+Cutscenes are three quarters of the disc and none of the first playable
+milestone depends on them, so they can be deferred wholesale.
+
+The 868 `.blo` layouts line up with the 259 GX calls in `plugPikiYamashita`:
+the 2D UI is a large, self-contained slice of both the code and the data.
+
+### The disc ships Nintendo's PC build
+
+The root of the retail disc contains `sysBootup.exe`, `sysCore.dll`, and several
+`.ilk` files — Windows PE binaries and Microsoft incremental-linker artifacts,
+left on the shipping disc. `sysCore.dll` is the Windows build of the same
+`src/sysCore` that needs `windows.h`, and by extension of `oglGraphics.cpp`.
+
+We can't use those binaries, but they confirm the PC/OpenGL configuration was a
+real, complete build rather than abandoned scaffolding — which is the strongest
+evidence yet that the `Graphics` abstraction genuinely supports a second
+backend.
+
 ## Layout
 
 ```
