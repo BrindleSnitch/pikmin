@@ -45,6 +45,15 @@ extern int g_trace_on;
 
 void traceStart(void);
 
+/*
+ * Register a table of call counters for the reporter to print.
+ *
+ * Generated stub files use this to surface which entry points the game actually
+ * touches. Printed periodically rather than at exit because runs here are ended
+ * with SIGKILL, which no destructor or atexit handler survives.
+ */
+void traceRegisterTable(const char* title, unsigned long* hits, const char* const* names, int count);
+
 #define TRACE_HIT(c)                     \
 	do {                                 \
 		if (g_trace_on) {                \

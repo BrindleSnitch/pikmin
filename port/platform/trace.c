@@ -18,6 +18,50 @@ static const char* const kNames[TR_COUNT] = {
 	"OSCreateThread",   "OSResumeThread",   "PADRead",
 };
 
+/* Counter tables registered by generated stub files. */
+#define MAX_TABLES 4
+
+typedef struct {
+	const char* title;
+	unsigned long* hits;
+	const char* const* names;
+	int count;
+} Table;
+
+static Table s_tables[MAX_TABLES];
+static int s_table_count;
+
+void traceRegisterTable(const char* title, unsigned long* hits, const char* const* names, int count)
+{
+	if (s_table_count < MAX_TABLES) {
+		s_tables[s_table_count].title = title;
+		s_tables[s_table_count].hits  = hits;
+		s_tables[s_table_count].names = names;
+		s_tables[s_table_count].count = count;
+		s_table_count++;
+	}
+}
+
+static void report_tables(void)
+{
+	int t, i;
+	for (t = 0; t < s_table_count; t++) {
+		Table* tb = &s_tables[t];
+		int used  = 0;
+		for (i = 0; i < tb->count; i++) {
+			if (tb->hits[i]) {
+				used++;
+			}
+		}
+		fprintf(stderr, "  [%s] %d of %d entry points used\n", tb->title, used, tb->count);
+		for (i = 0; i < tb->count; i++) {
+			if (tb->hits[i]) {
+				fprintf(stderr, "      %-28s %lu\n", tb->names[i], tb->hits[i]);
+			}
+		}
+	}
+}
+
 static void* reporter(void* unused)
 {
 	unsigned long prev[TR_COUNT];
@@ -47,6 +91,7 @@ static void* reporter(void* unused)
 		if (!any) {
 			fprintf(stderr, "  (nothing called -- fully blocked, not spinning)\n");
 		}
+		report_tables();
 		fflush(stderr);
 	}
 	return NULL;

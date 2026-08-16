@@ -89,7 +89,7 @@ def main():
     wanted = [s.strip() for s in open(args.symbols) if s.strip().startswith(args.prefix)]
     decls = collect_decls()
 
-    bodies, missing = [], []
+    bodies, missing, names = [], [], []
     for sym in sorted(set(wanted)):
         if sym not in decls:
             missing.append(sym)
@@ -117,8 +117,12 @@ def main():
                 else:
                     plist.append(f"{core} a{i}{arrays}")
         sig_params = ", ".join(plist) if plist else "void"
-        body = f"\t{'return ' + zero + ';' if zero else ''}".rstrip()
-        bodies.append(f"{normalise_ret(ret)} {sym}({sig_params})\n{{\n{body}\n}}\n")
+        idx = len(bodies)
+        lines = [f"\tSTUB_HIT({idx});"]
+        if zero:
+            lines.append(f"\treturn {zero};")
+        bodies.append(f"{normalise_ret(ret)} {sym}({sig_params})\n{{\n" + "\n".join(lines) + "\n}\n")
+        names.append(sym)
 
     with open(args.out, "w") as f:
         f.write(f"""/*
@@ -138,7 +142,23 @@ def main():
 """)
         for inc in args.include:
             f.write(f'#include "{inc}"\n')
-        f.write("\n")
+        f.write(f"""
+/* Call counting. Which of these the game actually uses, and how often, decides
+ * what a renderer has to implement first -- measured rather than assumed. Set
+ * PIKMIN_TRACE to have the totals printed at exit. */
+#define STUB_COUNT {len(bodies)}
+static unsigned long g_stub_hits[STUB_COUNT];
+static const char* const g_stub_names[STUB_COUNT] = {{
+{chr(10).join('    "' + n + '",' for n in names)}
+}};
+#define STUB_HIT(i) (g_stub_hits[(i)]++)
+
+__attribute__((constructor)) static void stub_register(void)
+{{
+    traceRegisterTable("{args.prefix}", g_stub_hits, g_stub_names, STUB_COUNT);
+}}
+
+""")
         f.write("\n".join(bodies))
 
     print(f"{args.out}: {len(bodies)} stubs")

@@ -45,7 +45,7 @@ for f in port/platform/*.c; do
 	# gx_stub and gx_fifo include SDK headers that pull in the stl shims
 	case "$f" in
 	*gx_stub.c | *gx_fifo.c | *jaudio_stub.c)
-		flags="-std=gnu99 -O0 $VERSION_DEFS -I include -I include/stl -include port/compat/ppc_compat.h -w"
+		flags="-std=gnu99 -O0 $VERSION_DEFS -I include -I include/stl -I port/platform -include port/compat/ppc_compat.h -w"
 		;;
 	*) flags="$CFLAGS_PLATFORM" ;;
 	esac
