@@ -60,6 +60,23 @@ typedef __PTRDIFF_TYPE__ sptr;
 typedef long sptr;
 #endif
 
+// Heap budgets were sized for 32-bit structures.
+//
+// Pointers double on a 64-bit host and so does every object that holds them --
+// BaseParm is 24 bytes here against the 0xC its header documents. The game's
+// fixed heap sizes are therefore too small by roughly the same factor: the
+// 0x20000 language heap fills and an 80-byte allocation fails with 72 bytes
+// left. Wrap a budget in PORT_HEAP() to scale it with the target.
+//
+// This is a workaround for pointer width, not a licence to grow heaps that run
+// out for other reasons. A 32-bit build would avoid it entirely, but arm64-v8a
+// devices without AArch32 support cannot run one.
+#if defined(__LP64__) || defined(_WIN64)
+#define PORT_HEAP(n) ((n) * 2)
+#else
+#define PORT_HEAP(n) (n)
+#endif
+
 // Volatile types
 typedef volatile u8 vu8;
 typedef volatile u16 vu16;

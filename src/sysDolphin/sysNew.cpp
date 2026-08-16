@@ -51,6 +51,17 @@ void* System::alloc(size_t size)
 			ERROR("acquired memory not long aligned %08x!!\n", (u32)(sptr)result);
 		}
 
+		if (!result) {
+			// The original presses on and zeroes through the null pointer, so an
+			// exhausted heap shows up as a segfault in the zeroing loop with no
+			// indication of which heap ran out or how much it wanted. Report and
+			// return instead: callers that ignore the null will still fail, but
+			// they will fail somewhere that names the cause.
+			OSReport("System::alloc: %u bytes FAILED in heap '%s' (%d free of %d)\n", (u32)size, heap->mName,
+			         heap->getFree(), heap->mSize);
+			return nullptr;
+		}
+
 		u32* resPtr = (u32*)result;
 		int length  = size / 4;
 		for (int i = 0; i < length; i++) {

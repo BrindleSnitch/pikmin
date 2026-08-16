@@ -114,7 +114,10 @@ static void tbl_put(Table* t, const void* key, void* val)
  * the GameCube's own RAM was mapped, so addresses here even resemble the
  * originals, which helps when comparing against a debugger or Dolphin.
  */
-#define ARENA_SIZE (24u * 1024u * 1024u)
+/* The console had 24MB. Structures are up to twice the size on a 64-bit host
+ * (see PORT_HEAP in types.h), so the arena everything is carved from has to
+ * grow with them. Still mapped low, and still refused if it lands above 4GB. */
+#define ARENA_SIZE PORT_HEAP(24u * 1024u * 1024u)
 #define ARENA_ADDR ((void*)(uintptr_t)0x80000000u)
 
 static char* s_arena_lo;

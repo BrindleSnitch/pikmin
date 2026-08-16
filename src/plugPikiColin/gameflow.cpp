@@ -571,7 +571,7 @@ void GameFlow::hardReset(BaseApp* baseApp)
 
 	// set up load heap
 	PRINT("load heap\n");
-	gsys->mHeaps[SYSHEAP_Load].init("load", AYU_STACK_GROW_UP, new u8[loadHeapSize], loadHeapSize);
+	gsys->mHeaps[SYSHEAP_Load].init("load", AYU_STACK_GROW_UP, new u8[PORT_HEAP(loadHeapSize)], PORT_HEAP(loadHeapSize));
 
 	// prepare nintendo logo to appear
 	mLastLoadedBannerTex  = nullptr;

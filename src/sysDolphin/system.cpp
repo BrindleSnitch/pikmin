@@ -574,8 +574,8 @@ void System::hardReset()
 	}
 	mForcePrint = old;
 
-	mCacher  = new TextureCacher(0x96000);
-	int size = 0x20000;
+	mCacher  = new TextureCacher(PORT_HEAP(0x96000));
+	int size = PORT_HEAP(0x20000);
 	gsys->mHeaps[SYSHEAP_Lang].init("language", AYU_STACK_GROW_UP, alloc(size), size);
 	preloadLanguage();
 
