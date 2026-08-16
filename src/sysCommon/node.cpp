@@ -153,7 +153,10 @@ void Node::render(Graphics& gfx)
  * @todo: Documentation
  * @note UNUSED Size: 000128 (Matching by size)
  */
-SRTNode::SRTNode(immut char* name = "<SRTNode>")
+// Default argument belongs on the declaration in Node.h, not here; repeating it
+// on the definition makes this a second default constructor. Defaults are
+// resolved at the call site, so dropping it does not affect codegen.
+SRTNode::SRTNode(immut char* name)
     : Node(name)
 {
 	setPosition(Vector3f(0.0f, 0.0f, 0.0f));

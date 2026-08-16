@@ -749,7 +749,9 @@ int PolyObjectMgr::getTemplateIndex(int id)
  */
 Creature* PolyObjectMgr::get(int i)
 {
-	return (Creature*)((int)mObjectPool + mMaxSize * i);
+	// mObjectPool is u8*, so this is already byte-wise arithmetic. The original
+	// round-tripped it through int, which truncates a 64-bit pointer.
+	return (Creature*)(mObjectPool + mMaxSize * i);
 }
 
 /**

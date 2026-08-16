@@ -152,7 +152,15 @@ bool zen::ogDrawScrMenu::draw(Graphics& gfx)
 	P2DPerspGraph graf(0, 0, 640, 480, 30.0f, 1.0f, 5000.0f);
 	graf.setPort();
 	mScreen->draw(0, 0, &graf);
+#if defined(__MWERKS__)
 	return /* nothing, because they forgot to. */;
+#else
+	// The original genuinely returns nothing from a bool function, leaving
+	// whatever happened to be in r3. Kept verbatim for the matching build above;
+	// other compilers reject it outright, and this function is unused, so the
+	// value below is arbitrary and unreachable in practice.
+	return false;
+#endif
 }
 
 /**

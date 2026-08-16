@@ -148,7 +148,7 @@ Menu::KeyEvent::KeyEvent(int eventType, int triggerKeys, IDelegate1<Menu&>* call
  * @param label Label to display for this menu option.
  * @param confirmCallback Unused (but passed as this when an option is added).
  */
-Menu::MenuItem::MenuItem(int itemType, int data, char* label, IDelegate1<Menu&>* confirmCallback)
+Menu::MenuItem::MenuItem(int itemType, sptr data, char* label, IDelegate1<Menu&>* confirmCallback)
 {
 	mIsEnabled = true;
 	mLabel     = label;
@@ -299,7 +299,7 @@ void Menu::resetOptions()
  * @param confirmCallback Delegate/callback to trigger when option is "confirmed" (A or START).
  * @param isEnabled Whether to enable the menu item as selectable. Default is `true` (never supplied as `false`).
  */
-void Menu::addOption(int data, char* label, IDelegate1<Menu&>* confirmCallback, bool isEnabled)
+void Menu::addOption(sptr data, char* label, IDelegate1<Menu&>* confirmCallback, bool isEnabled)
 {
 	// set up new item
 	mLastAddedItem             = new MenuItem(MenuItemType::Option, data, label, confirmCallback);
@@ -326,7 +326,7 @@ void Menu::addOption(int data, char* label, IDelegate1<Menu&>* confirmCallback, 
  * @param data Data payload to attach to the item.
  * @param label Text label to render for this option.
  */
-void Menu::addMenu(Menu* subMenu, int data, char* label)
+void Menu::addMenu(Menu* subMenu, sptr data, char* label)
 {
 	// add new item to list, and set up correct menu structure
 	mLastAddedItem           = new MenuItem(MenuItemType::SubMenu, data, label, nullptr);

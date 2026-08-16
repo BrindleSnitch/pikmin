@@ -34,7 +34,23 @@ void operator delete[](void* ptr);
 // name and use that.
 #define stack_new(type) &type
 #else
-#define stack_new(...) &__VA_ARGS__ /* This must be replaced with something legal or be removed. */
+// Everything else (clang, gcc): spell out what MetroWerks was doing implicitly.
+// `stack_new(T)(args)` expands to `new (alloca(sizeof(T))) T(args)`, which is
+// the placement-new-on-stack-storage described above, and yields a `T*` exactly
+// as the illegal `&T(args)` did.
+//
+// alloca'd storage lives until the enclosing FUNCTION returns, whereas the
+// MetroWerks temporary lived until the enclosing scope ended. Longer, so no
+// call site can be left holding a pointer that died too early. Two consequences
+// worth knowing: destructors do not run (per the note above, Pikmin 1 barely
+// uses them), and a stack_new inside a loop accumulates one allocation per
+// iteration until the function returns rather than being reclaimed each pass.
+// Declared here rather than via <new>: include/stl shadows <stddef.h> and
+// <stdlib.h>, so pulling in the real C++ library header breaks its internal
+// includes. This file already defines the ordinary operator new inline for the
+// same reason.
+inline void* operator new(size_t, void* ptr) { return ptr; }
+#define stack_new(...) new (__builtin_alloca(sizeof(__VA_ARGS__))) __VA_ARGS__
 #endif
 
 #endif // _SYSNEW_H

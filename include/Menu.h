@@ -125,7 +125,7 @@ public:
 	 */
 	class MenuItem {
 	public:
-		MenuItem(int itemType, int data, char* label, IDelegate1<Menu&>* confirmCallback);
+		MenuItem(int itemType, sptr data, char* label, IDelegate1<Menu&>* confirmCallback);
 
 		bool checkEvents(Menu* parentMenu, int eventMask);
 
@@ -139,7 +139,7 @@ public:
 		u8 _10[0x4];              ///< _10, unknown/unused.
 		bool mIsEnabled;          ///< _14, whether item is selectable or not.
 		char* mLabel;             ///< _18, label to render for the item.
-		int mData;                ///< _1C, data attached to item - the meaning of this data payload is determined by the callback using it.
+		sptr mData;               ///< _1C, data attached to item - the meaning of this data payload is determined by the callback using it. Pointer-sized: callers such as MapSelectSection store a StageInfo* here and cast it back.
 		MenuItemType::Type mType; ///< _20, type of item - see `MenuItemType` enum.
 		KeyEvent* mEventListHead; ///< _24, head/sentinel node of (doubly linked) event list.
 	};
@@ -158,8 +158,8 @@ public:
 
 	void addKeyEvent(int eventType, int triggerKeys, IDelegate1<Menu&>* callback);
 	void resetOptions();
-	void addOption(int data, char* label, IDelegate1<Menu&>* confirmCallback, bool isEnabled = true);
-	void addMenu(Menu* subMenu, int data, char* label);
+	void addOption(sptr data, char* label, IDelegate1<Menu&>* confirmCallback, bool isEnabled = true);
+	void addMenu(Menu* subMenu, sptr data, char* label);
 	void draw(Graphics& gfx, f32 fadeFactor);
 	void menuCloseMenu(Menu& menu);
 

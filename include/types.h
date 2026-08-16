@@ -25,6 +25,23 @@ typedef unsigned long u32;
 typedef unsigned long long u64;
 #endif
 
+// An integer wide enough to hold a pointer.
+//
+// The GameCube is 32-bit, so the original code stores pointers in `int` in a
+// few places. That is lossless there and lossy anywhere with 64-bit pointers,
+// so those sites use this instead. On PowerPC and on 32-bit MSVC it resolves to
+// a 32-bit type, leaving struct layouts and the matching build untouched.
+//
+// __PTRDIFF_TYPE__ is supplied by clang and gcc and is always exactly
+// pointer-sized; MetroWerks does not define it and falls through to `long`,
+// which is 32 bits under the PowerPC EABI. Avoids depending on <stdint.h>,
+// which include/stl shadows.
+#if defined(__PTRDIFF_TYPE__)
+typedef __PTRDIFF_TYPE__ sptr;
+#else
+typedef long sptr;
+#endif
+
 // Volatile types
 typedef volatile u8 vu8;
 typedef volatile u16 vu16;

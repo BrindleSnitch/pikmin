@@ -1,0 +1,25 @@
+# Files deliberately left out of the portable source set.
+#
+# Every entry here is part of Nintendo's in-house PC tooling, not the game. It
+# targeted Win32 and desktop OpenGL, and the retail disc still carries the built
+# artefacts (sysBootup.exe, sysCore.dll). None of it is needed to run the game,
+# so these are excluded rather than shimmed -- stubbing out windows.h to make
+# them "pass" would be inventing coverage we do not have.
+#
+# oglGraphics.cpp is the exception worth revisiting: it is a complete second
+# Graphics backend and the closest thing to a reference for the renderer work.
+# It stays excluded only until there is a GL target to build it against.
+
+src/sysCore/attachModule.cpp
+src/sysCore/atxDirectRouter.cpp
+src/sysCore/fileIO.cpp
+src/sysCore/moduleMgr.cpp
+src/sysCore/tcpStream.cpp
+src/sysCore/uiCore.cpp
+src/sysCore/uiRenderWindow.cpp
+src/sysCore/uiTools.cpp
+src/sysCore/uiWindow.cpp
+src/sysCore/wSocket.cpp
+
+# needs gl/gl.h
+src/sysCore/oglGraphics.cpp

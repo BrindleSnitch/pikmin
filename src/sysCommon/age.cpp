@@ -80,8 +80,11 @@ void AgeServer::readPropValue(PROP_TYPE type, void* val)
  */
 void AgeServer::writeProp(PROP_TYPE type, void* data)
 {
+	// Pointers go over this stream as opaque handles for the PC-side debug tool
+	// to key on; nothing reads them back as addresses. writeInt is a 32-bit wire
+	// field, so the truncation on a 64-bit host is deliberate and harmless here.
 	writeInt(type);
-	writeInt(reinterpret_cast<int>(data));
+	writeInt((int)reinterpret_cast<sptr>(data));
 	writePropValue(type, data);
 }
 
@@ -233,7 +236,7 @@ int AgeServer::update()
 void AgeServer::setSectionRefresh(IDelegate1<AgeServer&>* cmd)
 {
 	writeInt(AGE_CMD_208);
-	writeInt(reinterpret_cast<int>(cmd));
+	writeInt((int)reinterpret_cast<sptr>(cmd));
 }
 
 /**
@@ -243,7 +246,7 @@ void AgeServer::setOnChange(IDelegate1<AgeServer&>* cmd)
 {
 	writeInt(AGE_CMD_SET_ON_CHANGE);
 	writeInt(1);
-	writeInt(reinterpret_cast<int>(cmd));
+	writeInt((int)reinterpret_cast<sptr>(cmd));
 }
 
 /**
@@ -253,7 +256,7 @@ void AgeServer::setOnChange(IDelegate* cmd)
 {
 	writeInt(AGE_CMD_SET_ON_CHANGE);
 	writeInt(0);
-	writeInt(reinterpret_cast<int>(cmd));
+	writeInt((int)reinterpret_cast<sptr>(cmd));
 }
 
 /**
@@ -328,7 +331,7 @@ bool AgeServer::getSaveFilename(String& path, char* option)
 void AgeServer::NewNode(char* name, ANode* node)
 {
 	writeInt(AGE_CMD_NEW_NODE);
-	writeInt(reinterpret_cast<int>(node));
+	writeInt((int)reinterpret_cast<sptr>(node));
 	writeString(name);
 	writeInt(node->getAgeNodeType());
 }
@@ -609,7 +612,7 @@ void AgeServer::NewButton(char* name, IDelegate1<AgeServer&>* cmd, int a)
 	writeString(name);
 	writeInt(a);
 	writeInt(1);
-	writeInt(reinterpret_cast<int>(cmd));
+	writeInt((int)reinterpret_cast<sptr>(cmd));
 }
 
 /**
@@ -621,5 +624,5 @@ void AgeServer::NewButton(char* name, IDelegate* cmd, int a)
 	writeString(name);
 	writeInt(a);
 	writeInt(0);
-	writeInt(reinterpret_cast<int>(cmd));
+	writeInt((int)reinterpret_cast<sptr>(cmd));
 }

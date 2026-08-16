@@ -6,22 +6,35 @@
 # GameCube source still parse as valid C++ for a little-endian 64-bit target?
 # That is the tripwire that catches an edit breaking one of the other 396 files.
 #
-# 45 files are known to fail (see baseline.txt). The check passes as long as no
-# NEW file joins them, so the build stays green while those are worked through.
+# baseline.txt lists files known to fail; the check passes as long as no NEW
+# file joins them. It is currently empty -- every source in the portable set
+# compiles -- so any failure at all is a regression. excluded.txt lists sources
+# deliberately left out of the set, with reasons.
 
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
 CXX="${CXX:-clang++}"
 BASELINE="tools/port/baseline.txt"
+EXCLUDED="tools/port/excluded.txt"
 FLAGS=(-fsyntax-only -std=c++98 -I include -I include/stl
        -include port/compat/ppc_compat.h -w)
 
 failing="$(mktemp)"
-trap 'rm -f "$failing"' EXIT
+skiplist="$(mktemp)"
+trap 'rm -f "$failing" "$skiplist"' EXIT
+
+# strip comments and blanks from the exclusion list
+sed -e 's/#.*//' -e '/^[[:space:]]*$/d' -e 's/[[:space:]]*$//' \
+	"$EXCLUDED" | sort >"$skiplist"
 
 total=0
+skipped=0
 while IFS= read -r f; do
+	if grep -qxF "$f" "$skiplist"; then
+		skipped=$((skipped + 1))
+		continue
+	fi
 	total=$((total + 1))
 	if ! "$CXX" "${FLAGS[@]}" "$f" 2>/dev/null; then
 		printf '%s\n' "$f" >>"$failing"
@@ -32,6 +45,7 @@ done < <(find src/plugPiki* src/sysCommon src/sysCore src/sysDolphin \
 sort -o "$failing" "$failing"
 n_fail=$(wc -l <"$failing")
 echo "checked $total files -- $((total - n_fail)) clean, $n_fail failing"
+echo "excluded $skipped files (see $EXCLUDED)"
 
 regressed="$(comm -23 "$failing" "$BASELINE")"
 fixed="$(comm -13 "$failing" "$BASELINE")"

@@ -8,25 +8,56 @@ toolchain, the `.dol` it produces, and its CI are all untouched.
 
 ## Where things stand
 
-A syntax-only pass over the 397 portable game sources with clang 21 on aarch64,
-after force-including `port/compat/ppc_compat.h`:
+The whole portable set compiles as C++ for a little-endian 64-bit target:
 
 ```
-352 clean / 397 total
+386 clean / 386 total, 11 excluded
 ```
 
-The remaining 45 files produce 140 errors in four repetitive categories.
+`tools/port/check.sh` runs that pass. `baseline.txt` is empty, so any failure is
+now a regression rather than a known gap. `excluded.txt` holds the 11 sources
+deliberately left out, with reasons.
 
-| Category | Count | Notes |
-| --- | ---: | --- |
-| Address of a temporary | 116 | CodeWarrior permitted `&Foo(x)`. Hoist into a named local. Almost all in `plugPikiNakata` (enemy AI). |
-| `windows.h` / `gl/gl.h` missing | 12 | Nintendo's internal PC tooling — see below. Stub or exclude; do not port. |
-| Pointer cast to `int` | 11 | The 32→64-bit problem. `int` no longer holds an address. Use `intptr_t`. Expect far more of these at runtime than a syntax check reveals. |
-| Misc | 2 | One missing return, one duplicated default argument. |
+This is a syntax check. It does not link, and nothing has been run — the value
+is purely that an edit breaking any of the 386 gets caught within a push.
 
-`tools/port/baseline.txt` lists those 45 files. `tools/port/check.sh` fails only
-when a file *outside* that list breaks, so CI stays green and useful while the
-backlog is worked through.
+### What the 140 original errors turned out to be
+
+**116 × address of a temporary.** All from one macro. `include/sysNew.h` carried
+a placeholder in its non-CodeWarrior branch, commented "This must be replaced
+with something legal or be removed." The comment above it already described the
+semantics — placement new on stack-allocated space — so `stack_new` now expands
+to exactly that via `__builtin_alloca`. The `__MWERKS__` branch is untouched.
+
+Two behavioural differences from the original, neither currently reachable:
+destructors do not run (the file notes Pikmin 1 barely uses them), and alloca is
+reclaimed at function exit rather than scope exit, so a `stack_new` in a loop
+accumulates. Seven call sites are genuinely inside loop bodies, all with small
+fixed bounds (`numDigits`, `i < 8`, a debug piki count) allocating objects of a
+few bytes — no growth concern, but worth remembering if new call sites appear.
+
+**11 × pointer cast to `int`.** Two were real 64-bit defects:
+
+- `objectMgr.cpp` computed pool element addresses through `(int)`, truncating
+  the pointer before the arithmetic. `mObjectPool` is `u8*`, so plain pointer
+  arithmetic is both correct and simpler.
+- `MenuItem::mData` stored a `StageInfo*` in an `int` that `mapSelect.cpp` casts
+  straight back to a pointer. `mData` and the `Menu` API now use `sptr`
+  (types.h), which is 32-bit on PowerPC — layout and the matching build are
+  unaffected.
+
+The other nine are AgeServer debug telemetry and one debug `PRINT`, sending
+pointers as opaque handles over a 32-bit wire protocol that nothing reads back
+as an address. Truncation there is now explicit and commented rather than
+incidental.
+
+**2 × misc.** `ogMenu.cpp` has a `bool` function that returns nothing — faithful
+to an original that left whatever was in r3, so the original is preserved under
+`#if defined(__MWERKS__)` and other compilers get a value. `node.cpp` repeated a
+default argument on a constructor definition; defaults resolve at the call site,
+so removing it does not affect codegen.
+
+**11 × missing `windows.h` / `gl/gl.h`.** Excluded, not shimmed — see below.
 
 ## Two findings worth knowing
 
