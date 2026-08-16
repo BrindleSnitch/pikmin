@@ -138,17 +138,46 @@ reference for what the replacement has to do.
 
 ### Progress
 
-`port/platform/` now supplies OS, DVD, CARD, AR, HIO and the cache ops, and
-`src/mtx` supplies the matrix maths. That takes the missing SDK surface from 263
-to 138 — GX 78, `Jac_*` 44, VI 9, PAD 7. (A raw symbol count also lists ~79 libc
-and pthread names; those resolve at link time and are not work.)
+`port/platform/` now supplies OS, DVD, VI, PAD, CARD, AR, HIO and the cache ops,
+and `src/mtx` supplies the matrix maths. That takes the missing SDK surface from
+263 to **122** — GX 78 (only 43 of them game-facing) and `Jac_*` 44. Everything
+else is done. (A raw symbol count also lists ~79 libc and pthread names; those
+resolve at link time and are not work.)
 
 | File | Supplies | Real or stub |
 | --- | --- | --- |
 | `os_host.c` | 35 `OS*` | Real: pthreads, POSIX clocks, a 24MB arena. |
 | `dvd_host.c` | 6 `DVD*` | Real: `pread` against the extracted tree. |
+| `vi_host.c` | 9 `VI*` | Real: frame pacing at 60000/1001 Hz. No display yet. |
+| `pad_host.c` | 7 `PAD*` | Real: SDL game controllers, incl. rumble. |
 | `card.c` | 23 `CARD*` | Stub: reports no card, a state the game already handles. |
 | `stubs.c` | cache, `HIO*`, `AR*` | No-op by nature, or deferred with audio. |
+
+VI matters more than "no display yet" suggests: the game's main loop is driven
+by `VIWaitForRetrace`, so that function's rate is the rate the whole simulation
+advances at. NTSC is 59.94 fields per second rather than 60, and the game was
+tuned against the real figure, so the pacing uses it. A missed field
+resynchronises to the next boundary instead of spinning through frames already
+lost.
+
+### Toolchain
+
+This device has two, and they are not interchangeable:
+
+| Command | Target | libc |
+| --- | --- | --- |
+| `clang` (Termux) | `aarch64-unknown-linux-android24` | Bionic |
+| `gcc` (Ubuntu) | `aarch64-linux-gnu` | glibc |
+
+`apt install libsdl2-dev` produces a **glibc** SDL2, which cannot be linked
+against Bionic objects. Local development therefore uses Ubuntu's gcc; both
+compilers build the tree cleanly, and CI independently checks a third
+(clang 18, x86_64 glibc).
+
+Worth knowing for later: an Android APK targets Bionic, so it needs a fourth
+toolchain — the NDK, on an x86_64 runner, with an SDL2 built for Android. That
+is a packaging concern rather than a porting one, but it is the reason to keep
+the platform layer free of glibc-specific assumptions.
 
 **None of this has been run.** It compiles; that is the entire claim. Threads in
 particular are the likeliest source of trouble: GameCube threads are
