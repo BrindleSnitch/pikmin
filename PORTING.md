@@ -86,6 +86,21 @@ are `wSocket`, `tcpStream`, `moduleMgr`, `attachModule`, `atxDirectRouter`, and
 the `ui*` set — a debug console, a socket layer, and an in-house window toolkit
 that Nintendo's developers ran on PC. None of it is needed to play the game.
 
+## Status
+
+The game boots and runs. It reaches System::run, completes GameFlow::softReset,
+loads 19 files including models and animations, and ticks a steady main loop --
+VIWaitForRetrace, PADRead and the frame message pump all running at ~35/s and
+climbing without crashing.
+
+Nothing is drawn: GX is still stubbed, so there is no window and no output. What
+exists is a game that runs its simulation correctly enough not to fall over,
+which is the workload a renderer now has to be built against.
+
+Frame pacing reports ~90% of fields as "behind" -- the loop runs nearer 35Hz
+than the 59.94Hz target. Expected at -O0 with tracing on, under proot, on a
+phone. Worth revisiting only once there is something to look at.
+
 ## The platform layer
 
 `tools/port/build.sh` compiles the portable set to aarch64 objects — 386 of 386,

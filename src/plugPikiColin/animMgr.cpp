@@ -354,7 +354,30 @@ void AnimMgr::loadAnims(immut char* animPath, immut char* bundlePath)
 			sprintf(finalBundlePath, bundlePath ? bundlePath : mModel->mName);
 
 			if (!bundlePath) {
+#if defined(__MWERKS__)
 				sprintf(&finalAnimPath[strlen(finalBundlePath) + 253], "anm");
+#else
+				// Swap the model's extension for the animation bundle's: with no
+				// bundle given, finalBundlePath holds the model name and the
+				// bundle sits beside it, so "…/opening.mod" becomes
+				// "…/opening.anm" -- which is what the disc actually contains.
+				//
+				// The line above writes three bytes at index strlen + 253 of a
+				// PATH_MAX (256) buffer. For a 27-character model name that is
+				// offset 280, twenty-four bytes past the end, landing squarely on
+				// the caller's stack. It is what corrupted the pointer returned by
+				// `new AnimMgr` in CineShapeObject::init: the clobbering value was
+				// 0x6d6e61, the bytes of "anm" itself.
+				//
+				// 253 is 256 - 3, so the offset is -3 wrapped to eight bits, and
+				// the target should be the path being edited rather than the
+				// as-yet-unwritten finalAnimPath. Kept verbatim for MetroWerks so
+				// the matching build is unaffected.
+				size_t bundleLen = strlen(finalBundlePath);
+				if (bundleLen >= 3) {
+					sprintf(&finalBundlePath[bundleLen - 3], "anm");
+				}
+#endif
 			}
 
 			gsys->loadBundle(finalBundlePath, false);
