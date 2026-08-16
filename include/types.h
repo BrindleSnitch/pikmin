@@ -60,6 +60,25 @@ typedef __PTRDIFF_TYPE__ sptr;
 typedef long sptr;
 #endif
 
+// Assemble a four-character tag from four bytes in the order they appear in a
+// file.
+//
+// The codebase repeatedly reads four bytes into a u8[4] and reinterprets it as
+// a u32 -- P2DPane's pane tag, ayuID, ID32 -- which puts the first byte in the
+// most significant position on the GameCube and the least significant one on a
+// little-endian host. The resulting number then never matches a four-character
+// literal like 'pall', so lookups quietly return nothing: P2DScreen::search
+// finds no pane and hands back a null the caller does not check.
+//
+// Note this is not the same problem the stream layer solves. These bytes are
+// read one at a time through readByte, which is correctly unswapped; it is the
+// reinterpretation afterwards that assumes a byte order.
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define FOURCC_FROM_BYTES(p) (((u32)(p)[0] << 24) | ((u32)(p)[1] << 16) | ((u32)(p)[2] << 8) | (u32)(p)[3])
+#else
+#define FOURCC_FROM_BYTES(p) (*(u32*)(p))
+#endif
+
 // Heap budgets were sized for 32-bit structures.
 //
 // Pointers double on a 64-bit host and so does every object that holds them --
