@@ -207,10 +207,21 @@ static void gfx_init(void)
 	fprintf(stderr, "gfx: %s / %s\n", (const char*)glGetString(GL_VERSION), (const char*)glGetString(GL_RENDERER));
 	fprintf(stderr, "gfx: writing every %ld frame(s) to %s\n", s_every, s_outdir);
 	glViewport(0, 0, FB_WIDTH, FB_HEIGHT);
-	/* Depth testing stays off for now. GX clips z to [-w, 0] where GL expects
-	 * [-w, w], so depth comparisons would be meaningful only after that range
-	 * is remapped -- and getting geometry visible at all comes first. */
-	glDisable(GL_DEPTH_TEST);
+	/*
+	 * Depth testing is required, not optional.
+	 *
+	 * The game relies on the depth buffer for visibility and draws in an order
+	 * that assumes it -- the title backdrop is submitted last, as triangle
+	 * 44,883 of 44,884, so without depth testing it paints over the entire
+	 * scene. That is what made every frame look like a flood fill.
+	 *
+	 * GX puts clip z in [-w, 0] against GL's [-w, w], so GX geometry lands in
+	 * the near half of the depth range. That costs precision but compares
+	 * correctly, which is enough to get the scene visible; remapping the range
+	 * properly can follow.
+	 */
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
 	glDisable(GL_CULL_FACE);
 	gfx_init_geometry();
 }

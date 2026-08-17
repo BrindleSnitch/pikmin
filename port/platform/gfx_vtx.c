@@ -390,6 +390,78 @@ static float* prim_slot(size_t i)
 
 static void emit_tri(size_t a, size_t b, size_t c)
 {
+	{
+		/* Find whatever is covering the viewport: track the largest triangle by
+		 * screen-space area and report where it came from. */
+		static float worst;
+		static unsigned long seen;
+		const float* va = s_prim + a * 4;
+		const float* vb = s_prim + b * 4;
+		const float* vc = s_prim + c * 4;
+		if (va[3] > 0.0f && vb[3] > 0.0f && vc[3] > 0.0f) {
+			float ax = va[0] / va[3], ay = va[1] / va[3];
+			float bx = vb[0] / vb[3], by = vb[1] / vb[3];
+			float cx = vc[0] / vc[3], cy = vc[1] / vc[3];
+			float area = 0.5f * ((bx - ax) * (cy - ay) - (cx - ax) * (by - ay));
+			if (area < 0.0f) {
+				area = -area;
+			}
+			seen++;
+			(void)worst;
+			/* Which triangle is nearest at screen centre decides what the
+			 * viewer actually sees, so test coverage of NDC (0,0) rather than
+			 * raw area. */
+			{
+				float d1 = (bx - ax) * (0.0f - ay) - (by - ay) * (0.0f - ax);
+				float d2 = (cx - bx) * (0.0f - by) - (cy - by) * (0.0f - bx);
+				float d3 = (ax - cx) * (0.0f - cy) - (ay - cy) * (0.0f - cx);
+				int neg  = (d1 < 0) || (d2 < 0) || (d3 < 0);
+				int pos  = (d1 > 0) || (d2 > 0) || (d3 > 0);
+				if (!(neg && pos)) { /* centre is inside this triangle */
+					static float nearest = 1e30f;
+					float wmin = va[3] < vb[3] ? (va[3] < vc[3] ? va[3] : vc[3]) : (vb[3] < vc[3] ? vb[3] : vc[3]);
+					if (wmin < nearest) {
+						nearest = wmin;
+						fprintf(stderr, "gfx: covers centre, tri #%lu w=%.1f area=%.2f  a(%.2f,%.2f) b(%.2f,%.2f) c(%.2f,%.2f)\n",
+						        seen, wmin, area, ax, ay, bx, by, cx, cy);
+					}
+				}
+			}
+		}
+	}
+	/*
+	 * PIKMIN_HIDE_BACKDROP skips triangles above a given NDC area.
+	 *
+	 * The title backdrop is a viewport-filling quad and is the frontmost thing
+	 * at screen centre, so it legitimately hides the rest of the scene. Dropping
+	 * it is purely a diagnostic for seeing whether anything is being drawn
+	 * behind it -- not a rendering decision.
+	 */
+	{
+		static float limit = -1.0f;
+		if (limit < 0.0f) {
+			const char* e = getenv("PIKMIN_HIDE_BACKDROP");
+			limit         = (e && *e) ? (float)atof(e) : 0.0f;
+		}
+		if (limit > 0.0f) {
+			const float* va = s_prim + a * 4;
+			const float* vb = s_prim + b * 4;
+			const float* vc = s_prim + c * 4;
+			if (va[3] > 0.0f && vb[3] > 0.0f && vc[3] > 0.0f) {
+				float ax = va[0] / va[3], ay = va[1] / va[3];
+				float bx = vb[0] / vb[3], by = vb[1] / vb[3];
+				float cx = vc[0] / vc[3], cy = vc[1] / vc[3];
+				float ar = 0.5f * ((bx - ax) * (cy - ay) - (cx - ax) * (by - ay));
+				if (ar < 0.0f) {
+					ar = -ar;
+				}
+				if (ar > limit) {
+					return;
+				}
+			}
+		}
+	}
+
 	push_vertex(s_prim + a * 4);
 	push_vertex(s_prim + b * 4);
 	push_vertex(s_prim + c * 4);
